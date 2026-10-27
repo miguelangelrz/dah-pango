@@ -1,0 +1,56 @@
+# Production on one small VPS: Caddy (HTTPS) -> web + api -> Postgres.
+# Fill infra/.env from infra/.env.example, then: docker compose -f infra/docker-compose.yml up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: America/Bogota
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      API_PORT: 4000
+      WEB_ORIGIN: https://${DOMAIN}
+      NODE_ENV: production
+    depends_on:
+      - postgres
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:4000
+      NODE_ENV: production
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - web
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
