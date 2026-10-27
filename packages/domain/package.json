@@ -1,0 +1,17 @@
+{
+  "name": "@dah-pango/domain",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@dah-pango/config": "workspace:*",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}

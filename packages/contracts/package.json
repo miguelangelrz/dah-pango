@@ -1,0 +1,19 @@
+{
+  "name": "@dah-pango/contracts",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@dah-pango/domain": "workspace:*",
+    "zod": "4.3.3"
+  },
+  "devDependencies": {
+    "@dah-pango/config": "workspace:*",
+    "typescript": "5.9.3"
+  }
+}

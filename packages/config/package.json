@@ -1,0 +1,5 @@
+{
+  "name": "@dah-pango/config",
+  "private": true,
+  "files": ["tsconfig.base.json"]
+}
