@@ -1,18 +1,78 @@
-import { ATTENDANCE_STATES } from '@dah-pango/domain';
+import { ATTENDANCE_STATES, DOCUMENT_TYPES, type LegalDocumentKind } from '@dah-pango/domain';
 import { z } from 'zod';
 
 // Shared request and response shapes for the API and the web app.
 
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida');
 
-export const documentType = z.enum(['CC', 'TI', 'CE', 'PA']);
+export const documentType = z.enum(DOCUMENT_TYPES, 'Elige el tipo de documento');
+
+const documentNumber = z
+  .string()
+  .trim()
+  .min(3, 'Escribe el número de documento')
+  .max(20, 'El número de documento es muy largo');
+
+const phone = z
+  .string()
+  .trim()
+  .regex(/^\+?[\d\s-]{7,20}$/, 'Escribe un número de celular válido');
+
+const fullName = z.string().trim().min(3, 'Escribe tu nombre completo').max(120);
+
+export const PASSWORD_MIN_LENGTH = 8;
 
 export const login = z.object({
   documentType,
-  documentNumber: z.string().trim().min(3).max(20),
-  password: z.string().min(8),
+  documentNumber,
+  password: z.string().min(1, 'Escribe tu contraseña').max(128),
 });
 export type Login = z.infer<typeof login>;
+
+export const signup = z.object({
+  fullName,
+  documentType,
+  documentNumber,
+  phone,
+  password: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres`)
+    .max(128, 'La contraseña es muy larga'),
+});
+export type Signup = z.infer<typeof signup>;
+
+/** Minors (TI) need a guardian, who must be an adult. */
+export const guardian = z.object({
+  fullName,
+  documentType: z.enum(['CC', 'CE', 'PA'], 'Elige el documento del acudiente'),
+  documentNumber,
+  phone,
+});
+export type Guardian = z.infer<typeof guardian>;
+
+export const acceptLegalDocuments = z.object({
+  legalDocumentIds: z.array(z.uuid()).min(1),
+  guardian: guardian.optional(),
+});
+export type AcceptLegalDocuments = z.infer<typeof acceptLegalDocuments>;
+
+export interface PendingLegalDocument {
+  id: string;
+  kind: LegalDocumentKind;
+  version: string;
+  body: string;
+}
+
+/** The logged-in person, as GET /auth/me returns it. */
+export interface Me {
+  id: string;
+  fullName: string;
+  documentType: z.infer<typeof documentType>;
+  documentNumber: string;
+  roles: { role: 'student' | 'teacher' | 'director'; programId: string | null }[];
+  needsGuardian: boolean;
+  pendingLegalDocuments: PendingLegalDocument[];
+}
 
 export const markAttendance = z.object({
   sessionId: z.uuid(),

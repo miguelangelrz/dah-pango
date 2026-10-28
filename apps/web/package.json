@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dah-pango/contracts": "workspace:*",
     "@dah-pango/db": "workspace:*",
     "@dah-pango/domain": "workspace:*",
     "next": "16.4.3",
