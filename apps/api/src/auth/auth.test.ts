@@ -107,6 +107,9 @@ describe('signup and login', () => {
     await app.inject({ method: 'POST', url: '/auth/logout', headers: { cookie } });
     const me = await app.inject({ method: 'GET', url: '/auth/me', headers: { cookie } });
     expect(me.statusCode).toBe(401);
+    // The session stays in the login log.
+    const [logged] = await db.select().from(schema.authSession);
+    expect(logged?.endedAt).toBeInstanceOf(Date);
   });
 
   it('explains what is wrong with the form', async () => {

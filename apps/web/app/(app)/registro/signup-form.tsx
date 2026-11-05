@@ -83,7 +83,7 @@ export function SignupForm() {
       <SubmitButton busy={busy}>Crear cuenta</SubmitButton>
       <p className="text-center text-sm text-mute">
         ¿Ya tienes cuenta?{' '}
-        <Link href="/ingresar" className="font-medium text-chalk underline underline-offset-4">
+        <Link href="/ingresar" className="link font-medium text-chalk">
           Ingresa
         </Link>
       </p>

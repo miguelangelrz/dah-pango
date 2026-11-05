@@ -1,8 +1,7 @@
+import { ROLE_LABELS } from '@dah-pango/domain';
 import { redirect } from 'next/navigation';
 import { getMe } from '@/lib/session';
 import { LogoutButton } from './logout-button';
-
-const ROLE_LABELS = { student: 'Estudiante', teacher: 'Profe', director: 'Dirección' } as const;
 
 export default async function AppHome() {
   const me = await getMe();

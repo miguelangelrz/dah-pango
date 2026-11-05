@@ -1,0 +1,1 @@
+ALTER TABLE "auth_session" ADD COLUMN "ended_at" timestamp with time zone;

@@ -51,7 +51,7 @@ export function LoginForm() {
       <SubmitButton busy={busy}>Entrar</SubmitButton>
       <p className="text-center text-sm text-mute">
         ¿Primera vez?{' '}
-        <Link href="/registro" className="font-medium text-chalk underline underline-offset-4">
+        <Link href="/registro" className="link font-medium text-chalk">
           Crea tu cuenta
         </Link>
       </p>

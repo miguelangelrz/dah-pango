@@ -1,4 +1,9 @@
-import { ATTENDANCE_STATES, DOCUMENT_TYPES, type LegalDocumentKind } from '@dah-pango/domain';
+import {
+  ATTENDANCE_STATES,
+  DOCUMENT_TYPES,
+  type LegalDocumentKind,
+  type Role,
+} from '@dah-pango/domain';
 import { z } from 'zod';
 
 // Shared request and response shapes for the API and the web app.
@@ -69,7 +74,7 @@ export interface Me {
   fullName: string;
   documentType: z.infer<typeof documentType>;
   documentNumber: string;
-  roles: { role: 'student' | 'teacher' | 'director'; programId: string | null }[];
+  roles: { role: Role; programId: string | null }[];
   needsGuardian: boolean;
   pendingLegalDocuments: PendingLegalDocument[];
 }

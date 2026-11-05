@@ -13,7 +13,7 @@ export function LogoutButton() {
         router.replace('/ingresar');
         router.refresh();
       }}
-      className="rounded-full border border-line px-4 py-2 text-sm font-medium hover:border-chalk"
+      className="btn btn-outline btn-sm rounded-full"
     >
       Salir
     </button>

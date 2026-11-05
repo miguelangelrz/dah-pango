@@ -4,7 +4,7 @@ import type { Me } from '@dah-pango/contracts';
 import { LEGAL_DOCUMENT_LABELS } from '@dah-pango/domain';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { DocumentTypeSelect, Field, FormError, SubmitButton } from '@/components/form';
+import { Checkbox, DocumentTypeSelect, Field, FormError, SubmitButton } from '@/components/form';
 import { postJson } from '@/lib/api';
 
 export function ConsentForm({ me }: { me: Me }) {
@@ -47,27 +47,26 @@ export function ConsentForm({ me }: { me: Me }) {
       </p>
 
       {docs.map((doc) => (
-        <section key={doc.id} className="rounded-2xl border border-line bg-concrete">
-          <h2 className="border-b border-line px-4 py-3 font-semibold">
-            {LEGAL_DOCUMENT_LABELS[doc.kind]}{' '}
-            <span className="text-sm font-normal text-mute">versión {doc.version}</span>
-          </h2>
-          <div className="max-h-60 overflow-y-auto px-4 py-3 text-sm whitespace-pre-line text-mute">
-            {doc.body}
-          </div>
-          <label className="flex items-start gap-3 border-t border-line px-4 py-3">
-            <input type="checkbox" required className="mt-1 size-5 accent-house" />
-            <span className="text-sm">
+        <section key={doc.id} className="card card-border border-base-300 bg-base-200">
+          <div className="card-body gap-3 p-4">
+            <h2 className="card-title text-base">
+              {LEGAL_DOCUMENT_LABELS[doc.kind]}
+              <span className="badge badge-ghost badge-sm font-normal">versión {doc.version}</span>
+            </h2>
+            <div className="max-h-60 overflow-y-auto text-sm whitespace-pre-line text-mute">
+              {doc.body}
+            </div>
+            <Checkbox required>
               He leído y acepto {doc.kind === 'terms' ? 'los' : 'la'}{' '}
               {LEGAL_DOCUMENT_LABELS[doc.kind]}.
-            </span>
-          </label>
+            </Checkbox>
+          </div>
         </section>
       ))}
 
       {me.needsGuardian && (
-        <fieldset className="space-y-5 rounded-2xl border border-line p-4">
-          <legend className="px-2 font-semibold">Datos del acudiente</legend>
+        <fieldset className="fieldset space-y-4 rounded-box border border-base-300 p-4">
+          <legend className="fieldset-legend text-base">Datos del acudiente</legend>
           <Field label="Nombre completo" name="guardianName" autoComplete="off" required />
           <DocumentTypeSelect
             label="Tipo de documento"
@@ -76,12 +75,9 @@ export function ConsentForm({ me }: { me: Me }) {
           />
           <Field label="Número de documento" name="guardianDocumentNumber" required />
           <Field label="Celular" name="guardianPhone" type="tel" inputMode="tel" required />
-          <label className="flex items-start gap-3">
-            <input type="checkbox" required className="mt-1 size-5 accent-house" />
-            <span className="text-sm">
-              Soy la mamá, el papá o el acudiente de {me.fullName} y acepto en su nombre.
-            </span>
-          </label>
+          <Checkbox required>
+            Soy la mamá, el papá o el acudiente de {me.fullName} y acepto en su nombre.
+          </Checkbox>
         </fieldset>
       )}
 

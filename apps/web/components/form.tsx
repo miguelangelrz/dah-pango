@@ -2,10 +2,7 @@ import type { DocumentType } from '@dah-pango/domain';
 import { DOCUMENT_LABELS } from '@dah-pango/domain';
 import Link from 'next/link';
 
-// Form pieces shared by the login, sign-up and terms screens.
-
-const inputClass =
-  'mt-1 block w-full rounded-xl border border-line bg-concrete px-4 py-3 text-base text-chalk placeholder:text-mute focus:border-house focus:outline-none';
+// Form pieces shared by the login, sign-up and terms screens, built on daisyUI classes.
 
 export function Field({
   label,
@@ -15,7 +12,7 @@ export function Field({
   return (
     <label className="block">
       <span className="text-sm font-medium">{label}</span>
-      <input className={inputClass} {...input} />
+      <input className="input input-lg mt-1 w-full bg-base-200" {...input} />
       {hint && <span className="mt-1 block text-xs text-mute">{hint}</span>}
     </label>
   );
@@ -32,7 +29,7 @@ export function DocumentTypeSelect({
   return (
     <label className="block">
       <span className="text-sm font-medium">{label}</span>
-      <select className={inputClass} {...select}>
+      <select className="select select-lg mt-1 w-full bg-base-200" {...select}>
         {types.map((t) => (
           <option key={t} value={t}>
             {DOCUMENT_LABELS[t]}
@@ -43,14 +40,23 @@ export function DocumentTypeSelect({
   );
 }
 
+export function Checkbox({ children, ...input }: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label className="flex items-start gap-3">
+      <input type="checkbox" className="checkbox checkbox-primary mt-0.5" {...input} />
+      <span className="text-sm">{children}</span>
+    </label>
+  );
+}
+
 export function SubmitButton({ busy, children }: { busy: boolean; children: React.ReactNode }) {
   return (
     <button
       type="submit"
       disabled={busy}
-      className="w-full rounded-full bg-house px-6 py-3 font-display text-xl tracking-wide text-ink uppercase disabled:opacity-60"
+      className="btn btn-primary btn-lg btn-block rounded-full font-display text-xl tracking-wide uppercase"
     >
-      {busy ? 'Un momento…' : children}
+      {busy ? <span className="loading loading-spinner" aria-label="Un momento" /> : children}
     </button>
   );
 }
@@ -58,7 +64,7 @@ export function SubmitButton({ busy, children }: { busy: boolean; children: Reac
 export function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return (
-    <p role="alert" className="rounded-xl border border-rouge/60 bg-rouge/10 px-4 py-3 text-sm">
+    <p role="alert" className="alert alert-error alert-soft text-sm">
       {message}
     </p>
   );

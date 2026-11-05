@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { Db } from '@dah-pango/db';
 import { schema } from '@dah-pango/db';
-import { and, eq, gt, lt } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 export const SESSION_COOKIE = 'dp_session';
@@ -14,15 +14,10 @@ function hashToken(token: string): string {
 
 export async function startSession(db: Db, req: FastifyRequest, reply: FastifyReply, personId: string) {
   const token = randomBytes(32).toString('base64url');
-  const now = new Date();
-  // Each login is a good moment to drop this person's expired sessions.
-  await db
-    .delete(schema.authSession)
-    .where(and(eq(schema.authSession.personId, personId), lt(schema.authSession.expiresAt, now)));
   await db.insert(schema.authSession).values({
     tokenHash: hashToken(token),
     personId,
-    expiresAt: new Date(now.getTime() + SESSION_DAYS * DAY_MS),
+    expiresAt: new Date(Date.now() + SESSION_DAYS * DAY_MS),
     ip: req.ip,
     userAgent: req.headers['user-agent'] ?? null,
   });
@@ -35,7 +30,7 @@ export async function startSession(db: Db, req: FastifyRequest, reply: FastifyRe
   });
 }
 
-/** The person behind the request's cookie, or null when there is no live session. */
+/** The person behind the request's cookie, or null when the session expired or was ended. */
 export async function sessionPersonId(db: Db, req: FastifyRequest): Promise<string | null> {
   const token = req.cookies[SESSION_COOKIE];
   if (!token) return null;
@@ -43,7 +38,11 @@ export async function sessionPersonId(db: Db, req: FastifyRequest): Promise<stri
     .select({ personId: schema.authSession.personId })
     .from(schema.authSession)
     .where(
-      and(eq(schema.authSession.tokenHash, hashToken(token)), gt(schema.authSession.expiresAt, new Date())),
+      and(
+        eq(schema.authSession.tokenHash, hashToken(token)),
+        gt(schema.authSession.expiresAt, new Date()),
+        isNull(schema.authSession.endedAt),
+      ),
     );
   return row?.personId ?? null;
 }
@@ -51,7 +50,11 @@ export async function sessionPersonId(db: Db, req: FastifyRequest): Promise<stri
 export async function endSession(db: Db, req: FastifyRequest, reply: FastifyReply) {
   const token = req.cookies[SESSION_COOKIE];
   if (token) {
-    await db.delete(schema.authSession).where(eq(schema.authSession.tokenHash, hashToken(token)));
+    // The row stays as part of the login log; only the cookie goes away.
+    await db
+      .update(schema.authSession)
+      .set({ endedAt: new Date() })
+      .where(and(eq(schema.authSession.tokenHash, hashToken(token)), isNull(schema.authSession.endedAt)));
   }
   reply.clearCookie(SESSION_COOKIE, { path: '/' });
 }

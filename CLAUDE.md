@@ -45,7 +45,9 @@ packages/config   Base tsconfig
 infra             Docker Compose (dev and prod), Caddy, backups
 ```
 
-Not built yet: auth, attendance screens, request screens.
+Built: document + password login, sign-up, first-login consent (`apps/api/src/auth`, web `/ingresar`, `/registro`, `/terminos`). Director accounts and password resets: `pnpm account --document CC:123 --name ... --phone ... --password ... [--director <program-slug>]`.
+
+Not built yet: attendance screens, request screens.
 
 ## Commands
 
@@ -66,4 +68,5 @@ pnpm typecheck && pnpm test   # run before pushing; CI also builds web
 - History is never overwritten: close and reopen enrollments, log every attendance write in `attendance_event`, keep makeups as a ledger, keep consents append-only. Every enrollment change is recorded in `enrollment_change`.
 - Times are America/Bogota (UTC−5, no DST). Store calendar days as `date` and instants as `timestamptz`; use the helpers in `packages/domain/src/dates.ts`.
 - After editing `packages/db/src/schema.ts`, run `pnpm db:generate`; hand-written SQL goes in a `--custom` migration.
+- Web UI uses daisyUI 5 classes (`btn`, `input`, `select`, `card`...) with the `dahpango` theme defined in `apps/web/app/globals.css`; shared form pieces live in `apps/web/components/form.tsx`.
 - Deployment target is one small VPS with `infra/docker-compose.yml` and Caddy. No AWS.
