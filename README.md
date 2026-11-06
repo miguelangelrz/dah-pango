@@ -31,6 +31,14 @@ pnpm db:seed      # semestre 2026-2: 2 programas, 8 líneas, 15 clases y sus ses
 pnpm dev          # web en :3000, API en :4000
 ```
 
+Cuentas: cada estudiante crea la suya en `/registro` con su documento y contraseña; si ya estaba como visitante con el mismo documento, conserva su historial. Al primer ingreso todos aceptan los Términos y la Política de datos (los menores con TI, a través de su acudiente). Las cuentas de dirección se crean desde la terminal, y el mismo comando cambia la contraseña de una cuenta existente:
+
+```sh
+pnpm account --document CC:1020345678 --name "Nombre Apellido" --phone 3001234567 --password "clave-segura" --director en-rouge
+```
+
+En producción: `docker compose -f infra/docker-compose.yml exec api pnpm account ...`.
+
 Otras tareas: `pnpm typecheck`, `pnpm test`, `pnpm db:generate` (nueva migración después de cambiar `packages/db/src/schema.ts`).
 
 ## Producción

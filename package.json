@@ -14,7 +14,8 @@
     "db:down": "docker compose -f infra/docker-compose.dev.yml down",
     "db:migrate": "pnpm --filter @dah-pango/db migrate",
     "db:generate": "pnpm --filter @dah-pango/db generate",
-    "db:seed": "pnpm --filter @dah-pango/db seed"
+    "db:seed": "pnpm --filter @dah-pango/db seed",
+    "account": "pnpm --filter @dah-pango/api account"
   },
   "devDependencies": {
     "turbo": "2.11.10",

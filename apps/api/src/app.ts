@@ -1,9 +1,11 @@
+import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import type { Db } from '@dah-pango/db';
 import { schema } from '@dah-pango/db';
 import { blockForDate, bogotaDate } from '@dah-pango/domain';
 import { asc, desc, eq } from 'drizzle-orm';
 import Fastify from 'fastify';
+import { registerAuthRoutes } from './auth/routes';
 
 export interface AppOptions {
   db?: Db;
@@ -11,9 +13,11 @@ export interface AppOptions {
 }
 
 export function buildApp({ db, webOrigin }: AppOptions = {}) {
-  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
+  // Behind Caddy (production) or the Next.js /api rewrite (development): trust X-Forwarded-For for the IP.
+  const app = Fastify({ logger: process.env.NODE_ENV !== 'test', trustProxy: true });
 
   app.register(cors, { origin: webOrigin ?? true, credentials: true });
+  app.register(cookie);
 
   app.get('/health', async () => ({ ok: true }));
 
@@ -46,6 +50,14 @@ export function buildApp({ db, webOrigin }: AppOptions = {}) {
     const today = bogotaDate(new Date());
     return { term, blocks, currentBlock: blockForDate(blocks, today) ?? null };
   });
+
+  if (db) {
+    registerAuthRoutes(app, db);
+  } else {
+    app.all('/auth/*', async (_req, reply) =>
+      reply.code(503).send({ error: 'Base de datos no configurada' }),
+    );
+  }
 
   return app;
 }

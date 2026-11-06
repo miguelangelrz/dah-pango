@@ -3,3 +3,5 @@ export * from './blocks';
 export * from './attendance';
 export * from './makeups';
 export * from './schedule';
+export * from './identity';
+export * from './roles';

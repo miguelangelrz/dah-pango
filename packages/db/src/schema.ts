@@ -52,6 +52,22 @@ export const account = pgTable('account', {
   createdAt: createdAt(),
 });
 
+/**
+ * Login sessions, kept as a log of who logged in, when and from which device.
+ * The cookie holds a random token and only its SHA-256 is stored. Logging out sets ended_at.
+ */
+export const authSession = pgTable('auth_session', {
+  tokenHash: text('token_hash').primaryKey(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => person.id),
+  createdAt: createdAt(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  endedAt: timestamp('ended_at', { withTimezone: true }),
+  ip: inet('ip'),
+  userAgent: text('user_agent'),
+});
+
 export const program = pgTable('program', {
   id: id(),
   slug: text('slug').notNull().unique(),
@@ -337,10 +353,17 @@ export const consent = pgTable(
     ip: inet('ip'),
     userAgent: text('user_agent'),
     guardianName: text('guardian_name'),
+    guardianDocumentType: text('guardian_document_type'),
     guardianDocument: text('guardian_document'),
     guardianPhone: text('guardian_phone'),
   },
-  (t) => [unique('consent_person_document_unique').on(t.personId, t.legalDocumentId)],
+  (t) => [
+    unique('consent_person_document_unique').on(t.personId, t.legalDocumentId),
+    check(
+      'consent_guardian_document_type_check',
+      sql`${t.guardianDocumentType} in ('CC','CE','PA')`,
+    ),
+  ],
 );
 
 // Attendance
