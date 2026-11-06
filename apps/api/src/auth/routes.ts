@@ -23,9 +23,18 @@ import { endSession, sessionPersonId, startSession } from './sessions';
 
 const WRONG_LOGIN = 'Documento o contraseña incorrectos';
 
+/** Only the last digits go to the logs. */
+function maskDocument(number: string): string {
+  return number.length <= 3 ? '***' : `***${number.slice(-3)}`;
+}
+
 export function parse<T extends z.ZodType>(contract: T, body: unknown, reply: FastifyReply): z.infer<T> | null {
   const result = contract.safeParse(body);
   if (result.success) return result.data;
+  reply.request.log.warn(
+    { issues: result.error.issues.map((i) => `${i.path.join('.') || '(body)'}: ${i.message}`) },
+    'Invalid request body',
+  );
   reply.code(400).send({ error: result.error.issues[0]?.message ?? 'Datos inválidos' });
   return null;
 }
@@ -95,10 +104,12 @@ export async function requireMember(db: Db, req: FastifyRequest, reply: FastifyR
   const personId = await sessionPersonId(db, req);
   const me = personId ? await loadMe(db, personId) : null;
   if (!me) {
+    req.log.info({ reason: personId ? 'person_not_found' : 'no_valid_session' }, 'Unauthenticated request');
     reply.code(401).send({ error: 'Ingresa de nuevo' });
     return null;
   }
   if (me.pendingLegalDocuments.length > 0) {
+    req.log.info({ personId: me.id }, 'Blocked until the legal documents are accepted');
     reply.code(403).send({ error: 'Acepta los términos para continuar', code: 'consent_required' });
     return null;
   }
@@ -164,7 +175,12 @@ export function registerAuthRoutes(app: FastifyInstance, db: Db) {
     const ok = found?.passwordHash
       ? await verifyPassword(body.password, found.passwordHash)
       : await burnPasswordCheck(body.password);
-    if (!found || !ok) return reply.code(401).send({ error: WRONG_LOGIN });
+    if (!found || !ok) {
+      // The client always gets the same message; the log says which part failed.
+      const reason = !found ? 'no_person_with_document' : !found.passwordHash ? 'person_has_no_account' : 'wrong_password';
+      req.log.warn({ reason, document: `${body.documentType} ${maskDocument(documentNumber)}` }, 'Login failed');
+      return reply.code(401).send({ error: WRONG_LOGIN });
+    }
 
     await startSession(db, req, reply, found.person.id);
     return loadMe(db, found.person.id);
