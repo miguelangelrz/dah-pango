@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hashPassword, verifyPassword } from './password';
+import { hashPassword, verifyPassword } from '@dah-pango/db/password';
 
 describe('passwords', () => {
   it('verifies the right password and rejects others', async () => {

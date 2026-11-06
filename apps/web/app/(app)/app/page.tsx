@@ -19,14 +19,26 @@ export default async function AppHome() {
         Hola, {me.fullName.split(' ')[0]}
       </h1>
       {roles.length > 0 && <p className="mt-2 text-sm text-mute">{roles.join(' · ')}</p>}
-      <p className="mt-6 text-mute">
-        Aquí vas a ver tus clases, tu asistencia y tus reposiciones. Esas pantallas llegan en el
-        siguiente paso.
-      </p>
+      {me.permissions.includes('take_attendance') && (
+        <Link
+          href="/app/asistencia"
+          className="card card-border mt-8 border-base-300 bg-base-200 transition hover:border-primary"
+        >
+          <div className="card-body gap-1 p-4">
+            <h2 className="font-display text-2xl tracking-wide uppercase">Asistencia</h2>
+            <p className="text-sm text-mute">Las sesiones de hoy, reposiciones, visitantes y reemplazos.</p>
+          </div>
+        </Link>
+      )}
+      {!me.permissions.includes('take_attendance') && (
+        <p className="mt-6 text-mute">
+          Aquí vas a ver tus clases, tu asistencia y tus reposiciones. Esas pantallas llegan pronto.
+        </p>
+      )}
       {me.permissions.includes('configure_academy') && (
         <Link
           href="/app/configuracion"
-          className="card card-border mt-8 border-base-300 bg-base-200 transition hover:border-primary"
+          className="card card-border mt-3 border-base-300 bg-base-200 transition hover:border-primary"
         >
           <div className="card-body gap-1 p-4">
             <h2 className="font-display text-2xl tracking-wide uppercase">Configuración</h2>

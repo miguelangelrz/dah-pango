@@ -41,7 +41,7 @@ export function addSummaries(a: SessionSyncSummary, b: SessionSyncSummary): Sess
   };
 }
 
-/** Ids, among the given sesiones, that attendance, notices, makeups or the ledger point at. */
+/** Ids, among the given sesiones, that attendance, notices, makeups, the ledger or a handoff point at. */
 async function sessionsWithRecords(db: Db, ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
   const lists = await Promise.all([
@@ -49,6 +49,7 @@ async function sessionsWithRecords(db: Db, ids: string[]): Promise<Set<string>> 
     db.selectDistinct({ id: schema.absenceNotice.sessionId }).from(schema.absenceNotice).where(inArray(schema.absenceNotice.sessionId, ids)),
     db.selectDistinct({ id: schema.makeupRequest.sessionId }).from(schema.makeupRequest).where(inArray(schema.makeupRequest.sessionId, ids)),
     db.selectDistinct({ id: schema.makeupLedger.sessionId }).from(schema.makeupLedger).where(inArray(schema.makeupLedger.sessionId, ids)),
+    db.selectDistinct({ id: schema.sessionHandoff.sessionId }).from(schema.sessionHandoff).where(inArray(schema.sessionHandoff.sessionId, ids)),
   ]);
   return new Set(lists.flat().map((r) => r.id));
 }

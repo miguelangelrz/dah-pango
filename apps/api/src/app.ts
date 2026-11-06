@@ -6,6 +6,7 @@ import { blockForDate, bogotaDate } from '@dah-pango/domain';
 import { asc, desc, eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import { registerAdminRoutes } from './admin/routes';
+import { registerAttendanceRoutes } from './attendance/routes';
 import { registerAuthRoutes } from './auth/routes';
 
 export interface AppOptions {
@@ -76,8 +77,12 @@ export function buildApp({ db, webOrigin, clock }: AppOptions = {}) {
   if (db) {
     registerAuthRoutes(app, db);
     registerAdminRoutes(app, db, clock);
+    registerAttendanceRoutes(app, db, clock);
   } else {
-    app.log.warn('No database configured: /auth and /admin answer 503');
+    app.log.warn('No database configured: /auth, /admin and /attendance answer 503');
+    app.all('/attendance/*', async (_req, reply) =>
+      reply.code(503).send({ error: 'Base de datos no configurada' }),
+    );
     app.all('/admin/*', async (_req, reply) =>
       reply.code(503).send({ error: 'Base de datos no configurada' }),
     );

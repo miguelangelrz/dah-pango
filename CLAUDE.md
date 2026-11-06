@@ -49,7 +49,9 @@ Built: document + password login, sign-up, first-login consent (`apps/api/src/au
 
 Built: academy configuration for directors and super admins (`apps/api/src/admin`, web `/app/configuracion`): semestres, bloques, weekly slots and durations. Changes re-sync only sesiones that haven't started (`syncSessions` in `packages/domain/src/calendar.ts`); sesiones with records are kept.
 
-Not built yet: attendance screens, request screens, creating or editing clases themselves (title, teacher, líneas).
+Built: attendance for teachers, directors and super admins (`apps/api/src/attendance`, web `/app/asistencia`): the day's sesiones and open ones still to mark, marking, makeups (debit the clase's programa, or `ledgerProgram` for general clases), walk-ins (matched by document), handing a sesión to another teacher or a guest (logged in `session_handoff`). The lock job (`lockDueSessions`) runs every 10 minutes and before attendance is shown; it stamps `session.locked_at`.
+
+Not built yet: student screens (absence notices, requests), request review, cancel/reschedule screens, creating or editing clases themselves (title, teacher, líneas).
 
 ## Commands
 
@@ -59,7 +61,7 @@ Node 22, pnpm 10, Docker (or a local Postgres 16). Copy `.env.example` to `.env`
 pnpm install
 pnpm db:up          # Postgres in Docker
 pnpm db:migrate
-pnpm db:seed        # 2026-2: 2 programas, 8 líneas, 15 clases and their sesiones
+pnpm db:seed        # 2026-2: 2 programas, 8 líneas, 15 clases and their sesiones, plus demo people (--no-demo to skip; never in production)
 pnpm dev            # web :3000, API :4000
 pnpm typecheck && pnpm test   # run before pushing; CI also builds web
 ```
