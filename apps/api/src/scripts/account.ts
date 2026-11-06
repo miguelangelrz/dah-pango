@@ -7,6 +7,8 @@ import { hashPassword } from '../auth/password';
 // Creates an account from the command line, or sets a new password on an existing one.
 // The first directors are created here, since the seed only has placeholders for them:
 //   pnpm account --document CC:1020345678 --name "Nombre" --phone 3001234567 --password ... --director en-rouge
+// --admin grants the app-only super admin role (every director permission, no clases),
+// for whoever runs the app, for example to log in with your own document during development.
 
 const { values } = parseArgs({
   options: {
@@ -15,6 +17,7 @@ const { values } = parseArgs({
     phone: { type: 'string' },
     password: { type: 'string' },
     director: { type: 'string' },
+    admin: { type: 'boolean' },
   },
 });
 
@@ -99,6 +102,10 @@ try {
           { personId: person.id, role: 'director', programId: program.id },
         ])
         .onConflictDoNothing();
+    }
+    if (values.admin) {
+      await tx.insert(schema.roleGrant).values({ personId: person.id, role: 'admin' }).onConflictDoNothing();
+      console.log('Granted super admin.');
     }
     console.log(`${had ? 'New password for' : 'Account created for'} ${person.fullName} (${documentType} ${documentNumber}).`);
   });

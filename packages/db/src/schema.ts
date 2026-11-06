@@ -76,7 +76,10 @@ export const program = pgTable('program', {
   accentColor: text('accent_color'),
 });
 
-/** Directors are superadmins; program_id is the program a director leads. */
+/**
+ * Directors are superadmins; program_id is the program a director leads.
+ * `admin` is app-only (no program, no clases): it has every director permission.
+ */
 export const roleGrant = pgTable(
   'role_grant',
   {
@@ -89,7 +92,7 @@ export const roleGrant = pgTable(
   },
   (t) => [
     unique('role_grant_unique').on(t.personId, t.role, t.programId).nullsNotDistinct(),
-    check('role_grant_role_check', sql`${t.role} in ('student','teacher','director')`),
+    check('role_grant_role_check', sql`${t.role} in ('student','teacher','director','admin')`),
   ],
 );
 

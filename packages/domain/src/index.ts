@@ -5,3 +5,4 @@ export * from './makeups';
 export * from './schedule';
 export * from './identity';
 export * from './roles';
+export * from './calendar';

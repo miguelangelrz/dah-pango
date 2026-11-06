@@ -11,6 +11,7 @@ import {
   needsGuardian,
   normalizeDocumentNumber,
   pendingLegalDocuments,
+  permissionsOf,
   type DocumentType,
   type LegalDocumentKind,
 } from '@dah-pango/domain';
@@ -22,7 +23,7 @@ import { endSession, sessionPersonId, startSession } from './sessions';
 
 const WRONG_LOGIN = 'Documento o contraseña incorrectos';
 
-function parse<T extends z.ZodType>(contract: T, body: unknown, reply: FastifyReply): z.infer<T> | null {
+export function parse<T extends z.ZodType>(contract: T, body: unknown, reply: FastifyReply): z.infer<T> | null {
   const result = contract.safeParse(body);
   if (result.success) return result.data;
   reply.code(400).send({ error: result.error.issues[0]?.message ?? 'Datos inválidos' });
@@ -80,6 +81,7 @@ export async function loadMe(db: Db, personId: string): Promise<Me | null> {
     documentType,
     documentNumber: person.documentNumber,
     roles: roles as Me['roles'],
+    permissions: permissionsOf(roles as Me['roles']),
     needsGuardian: needsGuardian(documentType),
     pendingLegalDocuments: await pendingFor(db, personId),
   };

@@ -1,4 +1,5 @@
 import { ROLE_LABELS } from '@dah-pango/domain';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getMe } from '@/lib/session';
 import { LogoutButton } from './logout-button';
@@ -22,6 +23,17 @@ export default async function AppHome() {
         Aquí vas a ver tus clases, tu asistencia y tus reposiciones. Esas pantallas llegan en el
         siguiente paso.
       </p>
+      {me.permissions.includes('configure_academy') && (
+        <Link
+          href="/app/configuracion"
+          className="card card-border mt-8 border-base-300 bg-base-200 transition hover:border-primary"
+        >
+          <div className="card-body gap-1 p-4">
+            <h2 className="font-display text-2xl tracking-wide uppercase">Configuración</h2>
+            <p className="text-sm text-mute">Semestres, bloques y horarios de las clases.</p>
+          </div>
+        </Link>
+      )}
     </main>
   );
 }

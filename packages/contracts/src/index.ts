@@ -2,6 +2,7 @@ import {
   ATTENDANCE_STATES,
   DOCUMENT_TYPES,
   type LegalDocumentKind,
+  type Permission,
   type Role,
 } from '@dah-pango/domain';
 import { z } from 'zod';
@@ -75,6 +76,8 @@ export interface Me {
   documentType: z.infer<typeof documentType>;
   documentNumber: string;
   roles: { role: Role; programId: string | null }[];
+  /** What the app lets them do, from their roles (directors and super admins: everything). */
+  permissions: Permission[];
   needsGuardian: boolean;
   pendingLegalDocuments: PendingLegalDocument[];
 }
@@ -114,3 +117,74 @@ export const makeupRequest = z.object({
   note: z.string().max(500).optional(),
 });
 export type MakeupRequest = z.infer<typeof makeupRequest>;
+
+// Academy configuration (directors and super admins)
+
+const termName = z.string().trim().min(3, 'Escribe el nombre del semestre').max(80, 'El nombre es muy largo');
+
+export const termInput = z.object({ name: termName, startsOn: isoDate, endsOn: isoDate });
+export type TermInput = z.infer<typeof termInput>;
+
+export const blocksInput = z.object({
+  blocks: z.array(z.object({ startsOn: isoDate, endsOn: isoDate })).min(1, 'Agrega al menos un bloque').max(12),
+});
+export type BlocksInput = z.infer<typeof blocksInput>;
+
+export const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora inválida');
+
+export const slotInput = z.object({
+  weekday: z.int().min(1).max(7),
+  startsAt: time,
+  durationMinutes: z
+    .int('La duración va en minutos')
+    .min(15, 'La clase dura al menos 15 minutos')
+    .max(360, 'La clase dura máximo 6 horas'),
+});
+export type SlotInput = z.infer<typeof slotInput>;
+
+export const courseSlotsInput = z.object({ slots: z.array(slotInput).max(14) });
+export type CourseSlotsInput = z.infer<typeof courseSlotsInput>;
+
+export interface AdminBlock {
+  id: string;
+  number: number;
+  startsOn: string;
+  endsOn: string;
+}
+
+export interface AdminTerm {
+  id: string;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  blocks: AdminBlock[];
+  sessionCount: number;
+  enrollmentCount: number;
+}
+
+export interface AdminSlot {
+  weekday: number;
+  startsAt: string; // 'HH:MM'
+  endsAt: string;
+  durationMinutes: number;
+}
+
+export interface AdminCourse {
+  id: string;
+  title: string;
+  kind: 'weekly' | 'special';
+  modality: 'on_site' | 'online';
+  program: { id: string; name: string; accentColor: string | null } | null;
+  startsOn: string | null;
+  endsOn: string | null;
+  slots: AdminSlot[];
+}
+
+/** What happened to the sesiones after a schedule or calendar change. */
+export interface SessionSyncSummary {
+  created: number;
+  updated: number;
+  removed: number;
+  /** Dropped by the new schedule but already with records: a director cancels them by hand. */
+  kept: number;
+}

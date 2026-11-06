@@ -5,14 +5,17 @@ import { schema } from '@dah-pango/db';
 import { blockForDate, bogotaDate } from '@dah-pango/domain';
 import { asc, desc, eq } from 'drizzle-orm';
 import Fastify from 'fastify';
+import { registerAdminRoutes } from './admin/routes';
 import { registerAuthRoutes } from './auth/routes';
 
 export interface AppOptions {
   db?: Db;
   webOrigin?: string;
+  /** The current time; tests pass a fixed one. */
+  clock?: () => Date;
 }
 
-export function buildApp({ db, webOrigin }: AppOptions = {}) {
+export function buildApp({ db, webOrigin, clock }: AppOptions = {}) {
   // Behind Caddy (production) or the Next.js /api rewrite (development): trust X-Forwarded-For for the IP.
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test', trustProxy: true });
 
@@ -53,7 +56,11 @@ export function buildApp({ db, webOrigin }: AppOptions = {}) {
 
   if (db) {
     registerAuthRoutes(app, db);
+    registerAdminRoutes(app, db, clock);
   } else {
+    app.all('/admin/*', async (_req, reply) =>
+      reply.code(503).send({ error: 'Base de datos no configurada' }),
+    );
     app.all('/auth/*', async (_req, reply) =>
       reply.code(503).send({ error: 'Base de datos no configurada' }),
     );
