@@ -29,6 +29,13 @@
       "when": 1793913300180,
       "tag": "0003_auth_session_ended_at",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793995373175,
+      "tag": "0004_role_grant_admin",
+      "breakpoints": true
     }
   ]
 }

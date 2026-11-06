@@ -37,6 +37,16 @@ Cuentas: cada estudiante crea la suya en `/registro` con su documento y contrase
 pnpm account --document CC:1020345678 --name "Nombre Apellido" --phone 3001234567 --password "clave-segura" --director en-rouge
 ```
 
+Para entrar con tu propio documento y poder hacer todo (por ejemplo en desarrollo), agrega `--admin`: da el rol de super admin, que solo existe en la app y tiene los mismos permisos que la dirección, sin aparecer como profe ni director. Si la cuenta ya existe (por ejemplo, creada en `/registro`), basta con el documento: conserva su contraseña, sus datos y su rol de estudiante.
+
+```sh
+pnpm account --document CC:TU_NUMERO --admin
+# cuenta nueva:
+pnpm account --document CC:TU_NUMERO --name "Tu Nombre" --phone 3001234567 --password "clave-segura" --admin
+```
+
+La dirección y los super admins ven **Configuración** en `/app`: semestres (fechas), sus bloques de 4 semanas (se pueden mover a mano) y el horario y la duración de cada clase. Al guardar, las sesiones que todavía no han pasado se ajustan solas; las que ya pasaron no cambian.
+
 En producción: `docker compose -f infra/docker-compose.yml exec api pnpm account ...`.
 
 Otras tareas: `pnpm typecheck`, `pnpm test`, `pnpm db:generate` (nueva migración después de cambiar `packages/db/src/schema.ts`).

@@ -4,9 +4,12 @@ import { DOCUMENT_TYPES, normalizeDocumentNumber, type DocumentType } from '@dah
 import { and, eq, isNull } from 'drizzle-orm';
 import { hashPassword } from '../auth/password';
 
-// Creates an account from the command line, or sets a new password on an existing one.
+// Creates an account from the command line, or updates an existing one (for example one made
+// at /registro). --password is optional for an existing account: without it the password stays.
 // The first directors are created here, since the seed only has placeholders for them:
 //   pnpm account --document CC:1020345678 --name "Nombre" --phone 3001234567 --password ... --director en-rouge
+// --admin grants the app-only super admin role (every director permission, no clases),
+// for whoever runs the app, for example to log in with your own document during development.
 
 const { values } = parseArgs({
   options: {
@@ -15,6 +18,7 @@ const { values } = parseArgs({
     phone: { type: 'string' },
     password: { type: 'string' },
     director: { type: 'string' },
+    admin: { type: 'boolean' },
   },
 });
 
@@ -29,7 +33,7 @@ if (!DOCUMENT_TYPES.includes(rawType as DocumentType) || !rawNumber) {
 }
 const documentType = rawType as DocumentType;
 const documentNumber = normalizeDocumentNumber(documentType, rawNumber);
-if (!values.password || values.password.length < 8) fail('--password needs at least 8 characters.');
+if (values.password !== undefined && values.password.length < 8) fail('--password needs at least 8 characters.');
 
 const { db, client } = createDb();
 try {
@@ -83,12 +87,15 @@ try {
     }
     if (!person) throw new Error('Person insert failed');
 
-    const passwordHash = await hashPassword(values.password!);
     const [had] = await tx.select().from(schema.account).where(eq(schema.account.personId, person.id));
-    if (had) {
-      await tx.update(schema.account).set({ passwordHash }).where(eq(schema.account.personId, person.id));
-    } else {
-      await tx.insert(schema.account).values({ personId: person.id, passwordHash });
+    if (!had && !values.password) fail('--password is needed to create a new account.');
+    if (values.password) {
+      const passwordHash = await hashPassword(values.password);
+      if (had) {
+        await tx.update(schema.account).set({ passwordHash }).where(eq(schema.account.personId, person.id));
+      } else {
+        await tx.insert(schema.account).values({ personId: person.id, passwordHash });
+      }
     }
 
     if (program) {
@@ -100,7 +107,12 @@ try {
         ])
         .onConflictDoNothing();
     }
-    console.log(`${had ? 'New password for' : 'Account created for'} ${person.fullName} (${documentType} ${documentNumber}).`);
+    if (values.admin) {
+      await tx.insert(schema.roleGrant).values({ personId: person.id, role: 'admin' }).onConflictDoNothing();
+      console.log('Granted super admin.');
+    }
+    const action = !had ? 'Account created for' : values.password ? 'New password for' : 'Updated';
+    console.log(`${action} ${person.fullName} (${documentType} ${documentNumber}).`);
   });
 } finally {
   await client.end();

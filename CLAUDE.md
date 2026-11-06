@@ -21,7 +21,7 @@ UI text is Spanish only; code, comments and commits are English.
 
 ## Business rules
 
-- Roles (`role_grant`): `student`, `teacher`, `director`. Directors are superadmins and are also teachers. One person can be student and teacher. Guest teachers may exist with only a name; a director then takes their attendance.
+- Roles (`role_grant`): `student`, `teacher`, `director`, plus the app-only `admin` (super admin: every director permission, no clases). Directors are superadmins and are also teachers. Check what someone may do with `can(roles, permission)` from `packages/domain/src/roles.ts`, not by role names. One person can be student and teacher. Guest teachers may exist with only a name; a director then takes their attendance.
 - Login is document number (`CC`, `TI`, `CE`, `PA`) + password, no verification yet. Phone is required for everyone, walk-ins included.
 - On first login everyone accepts the Términos y condiciones and the data policy (Ley 1581 de 2012), versioned in `legal_document`; acceptance goes in `consent` with date and device, and a new version asks again. Minors (`TI`) need a guardian to accept, saving the guardian's name, document and phone.
 - Students request enrollments, changes and makeups; a director can edit (e.g. the start date), then approves or denies. No class size limits. A student's clases must not overlap in time (`findOverlaps`).
@@ -45,9 +45,11 @@ packages/config   Base tsconfig
 infra             Docker Compose (dev and prod), Caddy, backups
 ```
 
-Built: document + password login, sign-up, first-login consent (`apps/api/src/auth`, web `/ingresar`, `/registro`, `/terminos`). Director accounts and password resets: `pnpm account --document CC:123 --name ... --phone ... --password ... [--director <program-slug>]`.
+Built: document + password login, sign-up, first-login consent (`apps/api/src/auth`, web `/ingresar`, `/registro`, `/terminos`). Director accounts and password resets: `pnpm account --document CC:123 --name ... --phone ... --password ... [--director <program-slug>] [--admin]`.
 
-Not built yet: attendance screens, request screens.
+Built: academy configuration for directors and super admins (`apps/api/src/admin`, web `/app/configuracion`): semestres, bloques, weekly slots and durations. Changes re-sync only sesiones that haven't started (`syncSessions` in `packages/domain/src/calendar.ts`); sesiones with records are kept.
+
+Not built yet: attendance screens, request screens, creating or editing clases themselves (title, teacher, líneas).
 
 ## Commands
 

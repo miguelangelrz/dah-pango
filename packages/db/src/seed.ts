@@ -1,9 +1,9 @@
-import { bogotaInstant, blockForDate, generateBlocks, occurrences } from '@dah-pango/domain';
+import { blockForDate, generateBlocks, planSessions } from '@dah-pango/domain';
 import { createDb, schema } from './index';
-import { PROGRAMS, TERM_2026_2 } from './seed-data';
+import { PROGRAMS, SEED_DIRECTOR, TERM_2026_2 } from './seed-data';
 
 // Loads the 2026-2 catalog and generates its sessions. Run on an empty database.
-// Directors are placeholders until the academy gives real names and documents.
+// The director has no document or account yet: `pnpm account --director <slug>` adds them.
 
 const PLACEHOLDER_PHONE = '0000000';
 
@@ -26,6 +26,13 @@ async function main() {
         endsOn: b.endsOn,
       }));
 
+      const [director] = await tx
+        .insert(schema.person)
+        .values({ fullName: SEED_DIRECTOR.fullName, phone: PLACEHOLDER_PHONE })
+        .returning();
+      if (!director) throw new Error('Director insert failed');
+      await tx.insert(schema.roleGrant).values({ personId: director.id, role: 'teacher' });
+
       for (const p of PROGRAMS) {
         const [program] = await tx
           .insert(schema.program)
@@ -38,15 +45,9 @@ async function main() {
           .returning();
         if (!program) throw new Error(`Program insert failed: ${p.slug}`);
 
-        const [director] = await tx
-          .insert(schema.person)
-          .values({ fullName: `Dirección ${p.name} (por definir)`, phone: PLACEHOLDER_PHONE })
-          .returning();
-        if (!director) throw new Error('Director insert failed');
-        await tx.insert(schema.roleGrant).values([
-          { personId: director.id, role: 'teacher' },
-          { personId: director.id, role: 'director', programId: program.id },
-        ]);
+        await tx
+          .insert(schema.roleGrant)
+          .values({ personId: director.id, role: 'director', programId: program.id });
 
         const trackIds = new Map<string, string>();
         for (const t of p.tracks) {
@@ -81,18 +82,15 @@ async function main() {
             }),
           );
 
-          const sessions = c.slots.flatMap((s) =>
-            occurrences(s.weekday, term.startsOn, term.endsOn).map((date) => ({
-              courseId: course.id,
-              termId: term.id,
-              blockId: blockRows.find((b) => b.number === blockForDate(blockRanges, date)?.number)
-                ?.id,
-              startsAt: bogotaInstant(date, s.startsAt),
-              endsAt: bogotaInstant(date, s.endsAt),
-              teacherId: director.id,
-              topic: c.topic,
-            })),
-          );
+          const sessions = planSessions(c.slots, term).map((s) => ({
+            courseId: course.id,
+            termId: term.id,
+            blockId: blockRows.find((b) => b.number === blockForDate(blockRanges, s.date)?.number)?.id,
+            startsAt: s.startsAt,
+            endsAt: s.endsAt,
+            teacherId: director.id,
+            topic: c.topic,
+          }));
           await tx.insert(schema.session).values(sessions);
         }
       }

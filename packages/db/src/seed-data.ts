@@ -33,6 +33,9 @@ export const TERM_2026_2 = {
   endsOn: '2026-12-20',
 };
 
+/** Directs both programs for now; their document is added with `pnpm account --director`. */
+export const SEED_DIRECTOR = { fullName: 'Jose Luis Cuesta' };
+
 export const PROGRAMS: SeedProgram[] = [
   {
     slug: 'en-rouge',
