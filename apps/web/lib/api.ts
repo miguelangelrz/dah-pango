@@ -1,5 +1,5 @@
 /** Calls the API from the browser; resolves to the JSON body or throws the API's Spanish message. */
-export async function sendJson<T>(method: 'POST' | 'PUT', path: string, body?: unknown): Promise<T> {
+export async function sendJson<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
     headers: body === undefined ? {} : { 'content-type': 'application/json' },
@@ -16,4 +16,12 @@ export function postJson<T>(path: string, body?: unknown): Promise<T> {
 
 export function putJson<T>(path: string, body?: unknown): Promise<T> {
   return sendJson<T>('PUT', path, body);
+}
+
+export function getJson<T>(path: string): Promise<T> {
+  return sendJson<T>('GET', path);
+}
+
+export function deleteJson<T>(path: string): Promise<T> {
+  return sendJson<T>('DELETE', path);
 }

@@ -1,5 +1,7 @@
 import {
   ATTENDANCE_STATES,
+  type AttendanceOrigin,
+  type AttendanceState,
   DOCUMENT_TYPES,
   type LegalDocumentKind,
   type Permission,
@@ -82,21 +84,103 @@ export interface Me {
   pendingLegalDocuments: PendingLegalDocument[];
 }
 
-export const markAttendance = z.object({
-  sessionId: z.uuid(),
-  personId: z.uuid(),
-  state: z.enum(ATTENDANCE_STATES),
-});
-export type MarkAttendance = z.infer<typeof markAttendance>;
+// Attendance (teachers, directors and super admins)
 
-export const addWalkIn = z.object({
-  sessionId: z.uuid(),
-  fullName: z.string().trim().min(2),
-  phone: z.string().trim().min(7),
-  documentType: documentType.optional(),
-  documentNumber: z.string().trim().optional(),
+export const attendanceMarks = z.object({
+  marks: z
+    .array(z.object({ personId: z.uuid(), state: z.enum(ATTENDANCE_STATES) }))
+    .min(1)
+    .max(200),
 });
+export type AttendanceMarks = z.infer<typeof attendanceMarks>;
+
+export const addMakeup = z.object({ personId: z.uuid() });
+export type AddMakeup = z.infer<typeof addMakeup>;
+
+/** A walk-in: phone is required; with a document, their history joins their account later. */
+export const addWalkIn = z
+  .object({
+    fullName: z.string().trim().min(3, 'Escribe el nombre completo').max(120),
+    phone,
+    documentType: documentType.optional(),
+    documentNumber: z.string().trim().max(20, 'El número de documento es muy largo').optional(),
+  })
+  .refine((w) => !w.documentNumber || w.documentType, { message: 'Elige el tipo de documento' });
 export type AddWalkIn = z.infer<typeof addWalkIn>;
+
+/** Hand a sesión to another teacher, or to a guest known only by name. */
+export const handOffSession = z.union([
+  z.object({ teacherId: z.uuid() }),
+  z.object({
+    guest: z.object({
+      fullName: z.string().trim().min(3, 'Escribe el nombre del profe invitado').max(120),
+      phone: phone.optional(),
+    }),
+  }),
+]);
+export type HandOffSession = z.infer<typeof handOffSession>;
+
+export interface AttendanceSessionSummary {
+  id: string;
+  course: { id: string; title: string; style: string | null };
+  program: { id: string; name: string; accentColor: string | null } | null;
+  startsAt: string; // ISO instant
+  endsAt: string;
+  locksAt: string;
+  status: 'scheduled' | 'cancelled' | 'rescheduled';
+  locked: boolean;
+  modality: 'on_site' | 'online';
+  room: string | null;
+  teacher: { id: string; fullName: string; hasAccount: boolean };
+  /** True when the person asking is the session's teacher. */
+  mine: boolean;
+  counts: { listed: number; marked: number };
+}
+
+export interface AttendanceDay {
+  date: string;
+  sessions: AttendanceSessionSummary[];
+  /** Earlier sesiones still open with students left to mark, oldest first. */
+  pending: AttendanceSessionSummary[];
+}
+
+export interface RosterRow {
+  personId: string;
+  fullName: string;
+  document: string | null; // 'CC 1020345678'
+  origin: AttendanceOrigin;
+  state: AttendanceState | null;
+  /** The student sent an absence notice for this sesión. */
+  noticeSent: boolean;
+  /** Repositions balance in the programa this sesión counts against, when there is one. */
+  balance: number | null;
+  hasAccount: boolean;
+}
+
+export interface AttendanceSessionDetail extends AttendanceSessionSummary {
+  topic: string | null;
+  canEdit: boolean;
+  /** Why the list is read-only or partly closed, in Spanish; null when everything is open. */
+  notice: string | null;
+  /** Whether present/absent can be marked yet (from the session day on). */
+  canMarkToday: boolean;
+  roster: RosterRow[];
+  handoffs: { from: string; to: string; madeAt: string }[];
+}
+
+export interface PersonMatch {
+  id: string;
+  fullName: string;
+  document: string | null;
+  /** Already on this sesión's list. */
+  listed: boolean;
+}
+
+export interface TeacherOption {
+  id: string;
+  fullName: string;
+  hasAccount: boolean;
+}
 
 export const enrollmentRequest = z
   .object({

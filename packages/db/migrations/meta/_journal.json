@@ -36,6 +36,20 @@
       "when": 1793995373175,
       "tag": "0004_role_grant_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794001204103,
+      "tag": "0005_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794001210635,
+      "tag": "0006_session_handoff_append_only",
+      "breakpoints": true
     }
   ]
 }
