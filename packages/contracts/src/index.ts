@@ -162,8 +162,8 @@ export interface AttendanceSessionDetail extends AttendanceSessionSummary {
   canEdit: boolean;
   /** Why the list is read-only or partly closed, in Spanish; null when everything is open. */
   notice: string | null;
-  /** Whether present/absent can be marked yet (from the session day on). */
-  canMarkToday: boolean;
+  /** Whether present/absent can be marked yet (from the session's start on). */
+  canMarkNow: boolean;
   roster: RosterRow[];
   handoffs: { from: string; to: string; madeAt: string }[];
 }

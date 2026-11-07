@@ -206,7 +206,7 @@ export function registerAttendanceRoutes(app: FastifyInstance, db: Db, clock: ()
       topic: loaded.session.topic,
       canEdit: closed === null,
       notice: closed ?? early,
-      canMarkToday: early === null,
+      canMarkNow: early === null,
       roster,
       handoffs: handoffs.map((h) => ({ from: nameOf(h.fromTeacherId), to: nameOf(h.toTeacherId), madeAt: h.madeAt.toISOString() })),
     };

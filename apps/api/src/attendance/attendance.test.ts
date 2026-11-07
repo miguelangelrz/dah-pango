@@ -142,7 +142,7 @@ describe('taking attendance', () => {
 
     let detail = (await get(`/attendance/sessions/${s}`, ana.cookie)).json() as AttendanceSessionDetail;
     expect(detail.roster.map((r) => r.fullName)).toEqual(['Sofía', 'Tomás']);
-    expect(detail.canEdit && detail.canMarkToday).toBe(true);
+    expect(detail.canEdit && detail.canMarkNow).toBe(true);
 
     const res = await send('PUT', `/attendance/sessions/${s}/marks`, ana.cookie, {
       marks: [
@@ -166,6 +166,19 @@ describe('taking attendance', () => {
       [null, 'excused', 'teacher'],
       ['excused', 'present', 'teacher'],
     ]);
+  });
+
+  it('only takes Falta con aviso before the session starts, even on the same day', async () => {
+    const ana = await member('111', ['teacher']);
+    const [later] = await db
+      .insert(schema.session)
+      .values({ courseId, termId, startsAt: bogotaInstant(TODAY, '20:00'), endsAt: bogotaInstant(TODAY, '21:00'), teacherId: ana.me.id })
+      .returning();
+    const sofia = await student('Sofía');
+    const url = `/attendance/sessions/${later!.id}`;
+    expect((await send('PUT', `${url}/marks`, ana.cookie, { marks: [{ personId: sofia, state: 'present' }] })).statusCode).toBe(409);
+    expect((await send('POST', `${url}/walk-ins`, ana.cookie, { fullName: 'Mateo Gómez', phone: '3101234567' })).statusCode).toBe(409);
+    expect((await send('PUT', `${url}/marks`, ana.cookie, { marks: [{ personId: sofia, state: 'excused' }] })).statusCode).toBe(200);
   });
 
   it('only takes Falta con aviso before the session day', async () => {

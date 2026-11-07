@@ -26,7 +26,7 @@ UI text is Spanish only; code, comments and commits are English.
 - On first login everyone accepts the Términos y condiciones and the data policy (Ley 1581 de 2012), versioned in `legal_document`; acceptance goes in `consent` with date and device, and a new version asks again. Minors (`TI`) need a guardian to accept, saving the guardian's name, document and phone.
 - Students request enrollments, changes and makeups; a director can edit (e.g. the start date), then approves or denies. No class size limits. A student's clases must not overlap in time (`findOverlaps`).
 - Attendance states: `present` (Asistió), `absent` (Falta), `excused` (Falta con aviso, earns a makeup credit), `makeup` (Reposición, uses one). Origins: `enrolled`, `makeup`, `walk_in`.
-- Students can send an absence notice until 24 h before the session; a teacher can mark `excused` any time before the lock.
+- Students can send an absence notice until 24 h before the session; a teacher can mark `excused` any time before the lock. `present`, `absent` and `makeup`, and adding makeups or walk-ins, only from the session's start time (`markProblem`, `addPersonProblem`). A makeup or walk-in added by mistake can be removed until the lock.
 - Lock: 24 h after the session ends. Unmarked rows become `absent`, and nobody can edit after it, directors included.
 - Teachers take attendance, can hand a session to a substitute, add a student as a makeup, and add walk-ins (marked present; their history joins their account later by document number).
 - Only directors cancel a session (everyone on the list gets a credit) or reschedule it (students send notice if it clashes).

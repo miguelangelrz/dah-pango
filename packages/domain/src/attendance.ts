@@ -1,4 +1,4 @@
-import { bogotaDate, parseIsoDate, type IsoDate } from './dates';
+import { parseIsoDate, type IsoDate } from './dates';
 import { programForGeneralMakeup, type LedgerEntry } from './makeups';
 import { can, isSuperAdmin } from './roles';
 
@@ -87,8 +87,8 @@ export interface SessionTiming {
 
 /**
  * Why a state can't be written on a session right now, or null when it can.
- * Falta con aviso can be marked any time before the lock; the other states only from
- * the session's day on (Bogotá), since nobody has attended or missed it before then.
+ * Falta con aviso can be marked any time before the lock; the other states only once the
+ * session has started, since nobody has attended or missed it before then.
  */
 export function markProblem(
   session: SessionTiming,
@@ -103,18 +103,21 @@ export function markProblem(
     const who = { enrolled: 'alguien inscrito', makeup: 'una reposición', walk_in: 'un visitante' }[origin];
     return `«${ATTENDANCE_LABELS[state]}» no aplica para ${who}`;
   }
-  if (state !== 'excused' && bogotaDate(now) < bogotaDate(session.startsAt)) {
-    return 'Esta sesión todavía no es hoy: por ahora solo se puede marcar Falta con aviso';
+  if (state !== 'excused' && now.getTime() < session.startsAt.getTime()) {
+    return 'La clase todavía no empieza: por ahora solo se puede marcar Falta con aviso';
   }
   return null;
 }
 
-/** Makeups and walk-ins join on the day; before that only notices make sense. */
+/**
+ * Makeups and walk-ins join once the session has started, and can be taken off the list
+ * (if added by mistake) until the lock.
+ */
 export function addPersonProblem(session: SessionTiming, now: Date): string | null {
   if (session.status !== 'scheduled') return markProblem(session, 'makeup', 'makeup', now);
   if (isLocked(session.endsAt, now)) return 'La asistencia de esta sesión ya se cerró';
-  if (bogotaDate(now) < bogotaDate(session.startsAt)) {
-    return 'Las reposiciones y los visitantes se agregan el día de la sesión';
+  if (now.getTime() < session.startsAt.getTime()) {
+    return 'Las reposiciones y los visitantes se agregan cuando empieza la clase';
   }
   return null;
 }

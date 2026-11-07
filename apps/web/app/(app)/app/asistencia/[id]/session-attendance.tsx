@@ -103,7 +103,7 @@ export function SessionAttendance({ initial, teachers }: { initial: AttendanceSe
         {s.roster.length === 0 && <li className="text-mute">Nadie inscrito en esta sesión todavía.</li>}
       </ul>
 
-      {s.canEdit && s.canMarkToday && unmarked.length > 0 && (
+      {s.canEdit && s.canMarkNow && unmarked.length > 0 && (
         <button
           type="button"
           disabled={busy !== null}
@@ -114,7 +114,7 @@ export function SessionAttendance({ initial, teachers }: { initial: AttendanceSe
         </button>
       )}
 
-      {s.canEdit && s.canMarkToday && s.status === 'scheduled' && (
+      {s.canEdit && s.canMarkNow && s.status === 'scheduled' && (
         <div className="space-y-2">
           <AddMakeup sessionId={s.id} onAdded={setS} />
           <AddWalkIn sessionId={s.id} onAdded={setS} />
@@ -149,7 +149,7 @@ function Row({
   onRemove: () => void;
 }) {
   const states = allowedStates(r.origin);
-  const canRemove = s.canEdit && s.canMarkToday && r.origin !== 'enrolled';
+  const canRemove = s.canEdit && s.canMarkNow && r.origin !== 'enrolled';
   return (
     <li className="rounded-box border border-base-300 bg-base-200 p-3">
       <div className="flex items-start justify-between gap-2">
@@ -185,7 +185,7 @@ function Row({
           <div className="join flex w-full">
             {states.map((state) => {
               const active = r.state === state;
-              const disabled = busy || !s.canEdit || (state !== 'excused' && !s.canMarkToday);
+              const disabled = busy || !s.canEdit || (state !== 'excused' && !s.canMarkNow);
               return (
                 <button
                   key={state}

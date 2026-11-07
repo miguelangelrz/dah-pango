@@ -18,14 +18,14 @@ const session: SessionTiming = {
 };
 
 describe('markProblem', () => {
-  it('allows only Falta con aviso before the session day', () => {
-    const dayBefore = bogotaInstant('2026-11-03', '20:00');
-    expect(markProblem(session, 'enrolled', 'excused', dayBefore)).toBeNull();
-    expect(markProblem(session, 'enrolled', 'present', dayBefore)).toMatch(/todavía no es hoy/);
+  it('allows only Falta con aviso before the session starts', () => {
+    const sameDayEarlier = bogotaInstant('2026-11-04', '17:59');
+    expect(markProblem(session, 'enrolled', 'excused', sameDayEarlier)).toBeNull();
+    expect(markProblem(session, 'enrolled', 'present', sameDayEarlier)).toMatch(/todavía no empieza/);
   });
 
-  it('allows every state from the morning of the session until the lock', () => {
-    expect(markProblem(session, 'enrolled', 'present', bogotaInstant('2026-11-04', '07:00'))).toBeNull();
+  it('allows every state from the start of the session until the lock', () => {
+    expect(markProblem(session, 'enrolled', 'present', bogotaInstant('2026-11-04', '18:00'))).toBeNull();
     expect(markProblem(session, 'enrolled', 'absent', bogotaInstant('2026-11-05', '18:59'))).toBeNull();
     expect(markProblem(session, 'enrolled', 'absent', bogotaInstant('2026-11-05', '19:00'))).toMatch(/se cerró/);
   });
@@ -46,8 +46,8 @@ describe('markProblem', () => {
 });
 
 describe('addPersonProblem', () => {
-  it('lets makeups and walk-ins join only on the day and before the lock', () => {
-    expect(addPersonProblem(session, bogotaInstant('2026-11-03', '18:00'))).toMatch(/el día de la sesión/);
+  it('lets makeups and walk-ins join only once the session started and before the lock', () => {
+    expect(addPersonProblem(session, bogotaInstant('2026-11-04', '17:50'))).toMatch(/cuando empieza la clase/);
     expect(addPersonProblem(session, bogotaInstant('2026-11-04', '18:10'))).toBeNull();
     expect(addPersonProblem(session, bogotaInstant('2026-11-06', '18:10'))).toMatch(/se cerró/);
   });
