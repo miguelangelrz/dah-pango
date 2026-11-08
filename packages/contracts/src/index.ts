@@ -3,7 +3,9 @@ import {
   type AttendanceOrigin,
   type AttendanceState,
   DOCUMENT_TYPES,
+  type EnrollmentAction,
   type LegalDocumentKind,
+  type RequestStatus,
   type Permission,
   type Role,
 } from '@dah-pango/domain';
@@ -155,6 +157,8 @@ export interface RosterRow {
   /** Repositions balance in the programa this sesión counts against, when there is one. */
   balance: number | null;
   hasAccount: boolean;
+  /** A reposición a director approved ahead of the clase: it stays on the list. */
+  approvedRequest: boolean;
 }
 
 export interface AttendanceSessionDetail extends AttendanceSessionSummary {
@@ -182,6 +186,14 @@ export interface TeacherOption {
   hasAccount: boolean;
 }
 
+// Students: their clases, absence notices and requests
+
+const note = z.string().trim().max(500, 'El mensaje es muy largo').optional();
+
+export const absenceNoticeInput = z.object({ note });
+export type AbsenceNoticeInput = z.infer<typeof absenceNoticeInput>;
+
+/** join: a línea or clase; leave: an inscripción; swap: both. wantedStart is when it takes effect. */
 export const enrollmentRequest = z
   .object({
     action: z.enum(['join', 'leave', 'swap']),
@@ -189,18 +201,144 @@ export const enrollmentRequest = z
     courseId: z.uuid().optional(),
     replacesEnrollmentId: z.uuid().optional(),
     wantedStart: isoDate.optional(),
-    note: z.string().max(500).optional(),
+    note,
   })
   .refine((r) => r.action === 'leave' || Boolean(r.trackId) !== Boolean(r.courseId), {
     message: 'Elige una línea o una clase',
+  })
+  .refine((r) => r.action === 'join' || Boolean(r.replacesEnrollmentId), {
+    message: 'Elige la inscripción que quieres cambiar o dejar',
   });
 export type EnrollmentRequest = z.infer<typeof enrollmentRequest>;
 
-export const makeupRequest = z.object({
-  sessionId: z.uuid(),
-  note: z.string().max(500).optional(),
-});
+export const makeupRequest = z.object({ sessionId: z.uuid(), note });
 export type MakeupRequest = z.infer<typeof makeupRequest>;
+
+/** A director approves (optionally with another start date) or denies, with an optional reply. */
+export const reviewRequest = z.object({
+  decision: z.enum(['approve', 'deny']),
+  approvedStart: isoDate.optional(),
+  reply: note,
+});
+export type ReviewRequest = z.infer<typeof reviewRequest>;
+
+export interface ProgramRef {
+  id: string;
+  name: string;
+  accentColor: string | null;
+}
+
+export interface SlotView {
+  weekday: number;
+  startsAt: string; // 'HH:MM'
+  endsAt: string;
+}
+
+export interface CourseOption {
+  id: string;
+  title: string;
+  program: ProgramRef | null;
+  slots: SlotView[];
+}
+
+export interface TrackOption {
+  id: string;
+  name: string;
+  program: ProgramRef;
+  courses: CourseOption[];
+}
+
+export interface StudentEnrollment {
+  id: string;
+  target: { kind: 'track' | 'course'; id: string; name: string };
+  program: ProgramRef | null;
+  validFrom: string;
+  validTo: string;
+  courses: CourseOption[];
+}
+
+export interface StudentSession {
+  id: string;
+  course: { id: string; title: string; style: string | null };
+  program: ProgramRef | null;
+  startsAt: string;
+  endsAt: string;
+  status: 'scheduled' | 'cancelled' | 'rescheduled';
+  modality: 'on_site' | 'online';
+  room: string | null;
+  teacherName: string;
+  origin: AttendanceOrigin;
+  state: AttendanceState | null;
+  noticeSent: boolean;
+  /** Last moment to send an absence notice from the app. */
+  noticeUntil: string;
+  canNotify: boolean;
+  locked: boolean;
+}
+
+export interface StudentBalance {
+  program: ProgramRef;
+  balance: number;
+}
+
+export interface StudentHome {
+  term: { id: string; name: string; startsOn: string; endsOn: string } | null;
+  enrollments: StudentEnrollment[];
+  balances: StudentBalance[];
+  /** Today and the next two weeks. */
+  upcoming: StudentSession[];
+  /** Past sesiones of this semestre, newest first. */
+  history: StudentSession[];
+  pendingRequests: number;
+}
+
+export interface PersonRef {
+  id: string;
+  fullName: string;
+  document: string | null;
+}
+
+interface RequestBase {
+  id: string;
+  status: RequestStatus;
+  student: PersonRef;
+  note: string | null;
+  reply: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+}
+
+export interface EnrollmentRequestView extends RequestBase {
+  kind: 'enrollment';
+  action: EnrollmentAction;
+  target: { kind: 'track' | 'course'; id: string; name: string; program: ProgramRef | null } | null;
+  replaces: { id: string; name: string; validFrom: string; validTo: string } | null;
+  wantedStart: string | null;
+  approvedStart: string | null;
+  /** Pending only: clases of the student this one would overlap. */
+  clashes: string[];
+}
+
+export interface MakeupRequestView extends RequestBase {
+  kind: 'makeup';
+  session: { id: string; title: string; startsAt: string; endsAt: string; program: ProgramRef | null };
+  /** The programa the reposición counts against, and the student's balance there. */
+  program: ProgramRef;
+  balance: number;
+}
+
+export type RequestView = EnrollmentRequestView | MakeupRequestView;
+
+/** What a student can ask for: líneas and clases of the semestre, and sesiones for a reposición. */
+export interface RequestOptions {
+  term: { id: string; name: string; startsOn: string; endsOn: string } | null;
+  today: string;
+  tracks: TrackOption[];
+  courses: CourseOption[];
+  enrollments: StudentEnrollment[];
+  makeupSessions: (StudentSession & { balance: number })[];
+}
 
 // Academy configuration (directors and super admins)
 

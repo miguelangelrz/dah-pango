@@ -61,20 +61,27 @@ export interface ListedPerson {
   personId: string;
   origin: AttendanceOrigin;
   state: AttendanceState | null;
+  /** Set when a director approved this reposición ahead of the clase. */
+  makeupRequestId: string | null;
 }
 
 /**
- * The list of each sesión: everyone enrolled on its day, plus anyone with an attendance row
- * (makeups, walk-ins, and students who left after being marked).
+ * The list of each sesión: everyone enrolled on its day, approved reposiciones, plus anyone
+ * with an attendance row (makeups, walk-ins, and students who left after being marked).
  */
 export async function rostersOf(db: Db, sessions: SessionRow[]): Promise<Map<string, ListedPerson[]>> {
   const out = new Map<string, ListedPerson[]>();
   if (sessions.length === 0) return out;
   const courseIds = [...new Set(sessions.map((s) => s.courseId))];
   const termIds = [...new Set(sessions.map((s) => s.termId))];
-  const [links, marks] = await Promise.all([
+  const sessionIds = sessions.map((s) => s.id);
+  const [links, marks, makeups] = await Promise.all([
     db.select().from(schema.trackCourse).where(inArray(schema.trackCourse.courseId, courseIds)),
-    db.select().from(schema.attendance).where(inArray(schema.attendance.sessionId, sessions.map((s) => s.id))),
+    db.select().from(schema.attendance).where(inArray(schema.attendance.sessionId, sessionIds)),
+    db
+      .select()
+      .from(schema.makeupRequest)
+      .where(and(inArray(schema.makeupRequest.sessionId, sessionIds), eq(schema.makeupRequest.status, 'approved'))),
   ]);
   const trackIds = [...new Set(links.map((l) => l.trackId))];
   const enrollments = await db
@@ -101,9 +108,17 @@ export async function rostersOf(db: Db, sessions: SessionRow[]): Promise<Map<str
       personId: m.personId,
       origin: m.origin as AttendanceOrigin,
       state: m.state as AttendanceState,
+      makeupRequestId: m.makeupRequestId,
     }));
     for (const id of enrolled) {
-      if (!rows.some((m) => m.personId === id)) list.push({ personId: id, origin: 'enrolled', state: null });
+      if (!list.some((m) => m.personId === id)) {
+        list.push({ personId: id, origin: 'enrolled', state: null, makeupRequestId: null });
+      }
+    }
+    for (const r of makeups.filter((r) => r.sessionId === s.id)) {
+      if (!list.some((m) => m.personId === r.studentId)) {
+        list.push({ personId: r.studentId, origin: 'makeup', state: null, makeupRequestId: r.id });
+      }
     }
     out.set(s.id, list);
   }
@@ -134,12 +149,12 @@ export function summarize(
   };
 }
 
-async function ledgerOf(db: Db, personId: string) {
+export async function ledgerOf(db: Db, personId: string) {
   return db.select().from(schema.makeupLedger).where(eq(schema.makeupLedger.personId, personId));
 }
 
 /** Programas of the clases a student is enrolled in this semestre, directly or through a línea. */
-async function enrolledPrograms(db: Db, personId: string, termId: string): Promise<string[]> {
+export async function enrolledPrograms(db: Db, personId: string, termId: string): Promise<string[]> {
   const rows = await db
     .select({ track: schema.track.programId, course: schema.course.programId })
     .from(schema.enrollment)
@@ -150,7 +165,7 @@ async function enrolledPrograms(db: Db, personId: string, termId: string): Promi
   return [...new Set(rows.map((r) => r.track ?? r.course).filter((p): p is string => p !== null))];
 }
 
-const asEntries = (rows: (typeof schema.makeupLedger.$inferSelect)[]): LedgerEntry[] =>
+export const asEntries = (rows: (typeof schema.makeupLedger.$inferSelect)[]): LedgerEntry[] =>
   rows.map((r) => ({
     programId: r.programId,
     delta: r.delta as 1 | -1,
@@ -196,7 +211,8 @@ export interface MarkWrite {
   from: AttendanceState | null;
   /** null removes the person from the list (only makeups and walk-ins). */
   to: AttendanceState | null;
-  source: 'teacher' | 'director' | 'lock';
+  source: 'teacher' | 'director' | 'lock' | 'notice';
+  makeupRequestId?: string | null;
   madeBy: string | null;
   now: Date;
 }
@@ -244,7 +260,13 @@ export async function writeMark(db: Db, w: MarkWrite) {
       .delete(schema.attendance)
       .where(and(eq(schema.attendance.sessionId, session.id), eq(schema.attendance.personId, w.personId)));
   } else {
-    const values = { state: w.to, origin: w.origin, markedBy: w.madeBy, markedAt: w.now };
+    const values = {
+      state: w.to,
+      origin: w.origin,
+      markedBy: w.madeBy,
+      markedAt: w.now,
+      ...(w.makeupRequestId ? { makeupRequestId: w.makeupRequestId } : {}),
+    };
     await db
       .insert(schema.attendance)
       .values({ sessionId: session.id, personId: w.personId, ...values })
@@ -275,7 +297,17 @@ export async function lockSession(db: Db, loaded: LoadedSession, now: Date) {
     if (session.status === 'scheduled') {
       const roster = (await rostersOf(tx, [session])).get(session.id) ?? [];
       for (const r of roster.filter((r) => r.state === null)) {
-        await writeMark(tx, { loaded, personId: r.personId, origin: r.origin, from: null, to: 'absent', source: 'lock', madeBy: null, now });
+        await writeMark(tx, {
+          loaded,
+          personId: r.personId,
+          origin: r.origin,
+          from: null,
+          to: 'absent',
+          source: 'lock',
+          madeBy: null,
+          makeupRequestId: r.makeupRequestId,
+          now,
+        });
       }
     }
     await tx.update(schema.session).set({ lockedAt: now }).where(eq(schema.session.id, session.id));

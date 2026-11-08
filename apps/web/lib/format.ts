@@ -54,3 +54,21 @@ export function describeSync(s: SessionSyncSummary): string {
   }
   return text;
 }
+
+/** A wall-clock 'HH:MM' as '6:00 p. m.'. */
+export function formatClock(time: string): string {
+  const [h = 0, m = 0] = time.split(':').map(Number);
+  const suffix = h < 12 ? 'a. m.' : 'p. m.';
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+const WEEKDAY_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+/** Weekly slots as 'Lun 6:00 p. m. – 7:00 p. m. · Mié …'. */
+export function formatSlots(slots: { weekday: number; startsAt: string; endsAt: string }[]): string {
+  if (slots.length === 0) return 'Sin horario';
+  return slots
+    .map((s) => `${WEEKDAY_SHORT[s.weekday - 1] ?? ''} ${formatClock(s.startsAt)} – ${formatClock(s.endsAt)}`)
+    .join(' · ');
+}

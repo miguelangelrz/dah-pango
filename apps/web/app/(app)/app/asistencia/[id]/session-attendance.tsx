@@ -149,7 +149,7 @@ function Row({
   onRemove: () => void;
 }) {
   const states = allowedStates(r.origin);
-  const canRemove = s.canEdit && s.canMarkNow && r.origin !== 'enrolled';
+  const canRemove = s.canEdit && s.canMarkNow && r.origin !== 'enrolled' && !r.approvedRequest;
   return (
     <li className="rounded-box border border-base-300 bg-base-200 p-3">
       <div className="flex items-start justify-between gap-2">
@@ -157,7 +157,11 @@ function Row({
           <p className="font-semibold">{r.fullName}</p>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-mute">
             {r.document && <span>{r.document}</span>}
-            {r.origin === 'makeup' && <span className="badge badge-info badge-soft badge-sm">Reposición</span>}
+            {r.origin === 'makeup' && (
+              <span className="badge badge-info badge-soft badge-sm">
+                {r.approvedRequest ? 'Reposición aprobada' : 'Reposición'}
+              </span>
+            )}
             {r.origin === 'walk_in' && (
               <span className="badge badge-soft badge-sm">{r.hasAccount ? 'Visitante' : 'Visitante sin cuenta'}</span>
             )}

@@ -194,6 +194,7 @@ export function registerAttendanceRoutes(app: FastifyInstance, db: Db, clock: ()
           noticeSent: notices.some((n) => n.personId === r.personId),
           balance: programId ? (balances.get(r.personId)?.get(programId) ?? 0) : null,
           hasAccount: Boolean(p?.accountId),
+          approvedRequest: r.makeupRequestId !== null,
         };
       })
       .sort((a, b) => originOrder[a.origin] - originOrder[b.origin] || a.fullName.localeCompare(b.fullName, 'es'));
@@ -238,6 +239,7 @@ export function registerAttendanceRoutes(app: FastifyInstance, db: Db, clock: ()
             to: mark.state,
             source: writeSource(me.roles, me.id, loaded.session.teacherId),
             madeBy: me.id,
+            makeupRequestId: row.makeupRequestId,
             now,
           });
           row.state = mark.state;
@@ -387,6 +389,9 @@ export function registerAttendanceRoutes(app: FastifyInstance, db: Db, clock: ()
           if (!row) throw new Problem(404, 'Esa persona no está en la lista');
           if (row.origin === 'enrolled') {
             throw new Problem(409, 'Solo se pueden quitar reposiciones y visitantes; a un inscrito se le marca Falta');
+          }
+          if (row.makeupRequestId) {
+            throw new Problem(409, 'Esta reposición la aprobó dirección: si no vino, márcala como Falta');
           }
           await writeMark(tx, {
             loaded,
