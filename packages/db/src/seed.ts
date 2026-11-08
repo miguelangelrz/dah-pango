@@ -1,16 +1,21 @@
 import { blockForDate, generateBlocks, planSessions } from '@dah-pango/domain';
 import { createDb, schema } from './index';
+import { DEMO_PASSWORD, DEMO_TEACHER, seedDemo } from './seed-demo';
 import { PROGRAMS, SEED_DIRECTOR, TERM_2026_2 } from './seed-data';
 
 // Loads the 2026-2 catalog and generates its sessions. Run on an empty database.
 // The director has no document or account yet: `pnpm account --director <slug>` adds them.
+// Outside production it also adds simulated students and their history (`seed-demo.ts`);
+// `pnpm db:seed --no-demo` leaves them out.
+
+const withDemo = process.env.NODE_ENV !== 'production' && !process.argv.includes('--no-demo');
 
 const PLACEHOLDER_PHONE = '0000000';
 
 async function main() {
   const { db, client } = createDb();
   try {
-    await db.transaction(async (tx) => {
+    const demo = await db.transaction(async (tx) => {
       const [term] = await tx.insert(schema.term).values(TERM_2026_2).returning();
       if (!term) throw new Error('Term insert failed');
 
@@ -109,8 +114,18 @@ async function main() {
           publishedAt: new Date(),
         },
       ]);
+
+      return withDemo ? seedDemo(tx, term, director.id, new Date()) : null;
     });
     console.log('Seed done: 2026-2 term, 2 programs, 8 líneas, 15 clases.');
+    if (demo) {
+      console.log(
+        `Demo: ${demo.students} students, ${demo.enrollments} inscripciones, ${demo.attendance} attendance rows (${demo.walkIns} walk-ins).`,
+      );
+      console.log(
+        `Demo logins (password ${DEMO_PASSWORD}): teacher ${DEMO_TEACHER.documentType} ${DEMO_TEACHER.documentNumber}; students CC 1000000100 to 1000000129, TI 1100000130 to 1100000135.`,
+      );
+    }
   } finally {
     await client.end();
   }

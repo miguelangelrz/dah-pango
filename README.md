@@ -27,7 +27,7 @@ pnpm install
 cp .env.example .env
 pnpm db:up        # Postgres en Docker
 pnpm db:migrate
-pnpm db:seed      # semestre 2026-2: 2 programas, 8 líneas, 15 clases y sus sesiones
+pnpm db:seed      # semestre 2026-2: 2 programas, 8 líneas, 15 clases y sus sesiones, más estudiantes simulados (--no-demo para omitirlos)
 pnpm dev          # web en :3000, API en :4000
 ```
 

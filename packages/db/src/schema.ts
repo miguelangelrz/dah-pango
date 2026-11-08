@@ -211,6 +211,8 @@ export const session = pgTable(
     rescheduledTo: uuid('rescheduled_to').references((): AnyPgColumn => session.id),
     topic: text('topic'), // All Styles: style of the month
     // Attendance locks at ends_at + 24h (domain `locksAt`, enforced by a trigger).
+    // Set by the lock job once it has turned the unmarked students into Falta.
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
   },
   (t) => [
     check('session_status_check', sql`${t.status} in ('scheduled','cancelled','rescheduled')`),
@@ -218,6 +220,24 @@ export const session = pgTable(
     unique('session_course_start_unique').on(t.courseId, t.startsAt),
   ],
 );
+
+/** Every time a sesión changes hands (a substitute or a guest teacher), kept as a log. */
+export const sessionHandoff = pgTable('session_handoff', {
+  id: id(),
+  sessionId: uuid('session_id')
+    .notNull()
+    .references(() => session.id),
+  fromTeacherId: uuid('from_teacher_id')
+    .notNull()
+    .references(() => person.id),
+  toTeacherId: uuid('to_teacher_id')
+    .notNull()
+    .references(() => person.id),
+  madeBy: uuid('made_by')
+    .notNull()
+    .references(() => person.id),
+  madeAt: timestamp('made_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 // Requests and enrollment
 

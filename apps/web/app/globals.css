@@ -20,6 +20,13 @@
   --color-neutral-content: #f2f0ea;
   --color-error: #ff2a00;
   --color-error-content: #f2f0ea;
+  /* Attendance states: Asistió, Falta con aviso, Reposición. */
+  --color-success: #3ddc84;
+  --color-success-content: #0e0e0e;
+  --color-warning: #ffd23f;
+  --color-warning-content: #0e0e0e;
+  --color-info: #4cc9f0;
+  --color-info-content: #0e0e0e;
   --radius-field: 0.75rem;
   --radius-box: 1rem;
   --radius-selector: 0.375rem;
