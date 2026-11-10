@@ -51,9 +51,9 @@ Built: academy configuration for directors and super admins (`apps/api/src/admin
 
 Built: attendance for teachers, directors and super admins (`apps/api/src/attendance`, web `/app/asistencia`): the day's sesiones and open ones still to mark, marking, makeups (debit the clase's programa, or `ledgerProgram` for general clases), walk-ins (matched by document), handing a sesión to another teacher or a guest (logged in `session_handoff`). The lock job (`lockDueSessions`) runs every 10 minutes and before attendance is shown; it stamps `session.locked_at`.
 
-Built: student screens and requests (`apps/api/src/student`, web `/app/clases`, `/app/solicitudes`): next two weeks of sesiones, semestre history, makeup balance per programa, absence notices until 24 h before (`noticeProblem`: marks `excused` with source `notice` and earns a credit), requests to join, swap or leave a línea or clase, and makeup requests in the same programa or a general clase (`makeupRequestProblem`). Directors and super admins review them at web `/app/revision`: they can move the date (never before today, `changeDateProblem`), then approve or deny with a reply. An approved enrollment change writes one `enrollment_change` with the request id, closes the old inscripción the day before and opens the new one until the term end; overlaps are refused (`clashesWith`). An approved makeup puts the student on that sesión's list (`rostersOf`) with origin `makeup` and no mark; the ledger is debited only when the teacher marks Reposición. Rules in `packages/domain/src/requests.ts`.
+Built: Mis clases for students (`apps/api/src/student`, web `/app/clases`): the next three days with clases (skipping empty days, paged with `?desde=`), a small makeup balance per programa, the semestre's history, and "No voy" absence notices until 24 h before (`noticeProblem`: marks `excused` with source `notice` and earns a credit).
 
-Not built yet: cancel/reschedule screens, creating or editing clases themselves (title, teacher, líneas), special clases with outside sign-ups.
+Not built yet: student requests (enrollments, changes, makeups) and their director review, a reposiciones view, cancel/reschedule screens, creating or editing clases themselves (title, teacher, líneas), special clases with outside sign-ups.
 
 ## Commands
 

@@ -127,7 +127,6 @@ export async function seedDemo(tx: Db, term: Term, directorId: string, now: Date
     ...courses.map((c) => ({ trackId: null, courseId: c.id, courses: [c.id] })),
   ];
   const enrollments: DatedEnrollment[] = [];
-  const openRows: { id: string; studentId: string; schedule: ScheduledCourse[]; programId: string | null }[] = [];
   for (const [i, student] of students.entries()) {
     const wanted = rnd.chance(0.4) ? 2 : 1;
     const chosen: ScheduledCourse[] = [];
@@ -160,10 +159,6 @@ export async function seedDemo(tx: Db, term: Term, directorId: string, now: Date
         await tx.update(schema.enrollment).set({ validTo, closedByChange: leave!.id }).where(eq(schema.enrollment.id, row!.id));
       }
       enrollments.push({ studentId: student.id, trackId: option.trackId, courseId: option.courseId, validFrom, validTo });
-      if (validTo === term.endsOn) {
-        const programId = option.trackId ? (tracks.find((t) => t.id === option.trackId)?.programId ?? null) : (programOfCourse.get(option.courseId!) ?? null);
-        openRows.push({ id: row!.id, studentId: student.id, schedule: candidate, programId });
-      }
     }
   }
 
@@ -249,46 +244,7 @@ export async function seedDemo(tx: Db, term: Term, directorId: string, now: Date
       .where(inArray(schema.session.id, lockedIds));
   }
 
-  const requests = await seedRequests();
-
-  // A few requests waiting for a director: an inscripción, a salida and a reposición.
-  async function seedRequests() {
-    if (today < term.startsOn || addDays(today, 8) > term.endsOn) return 0;
-    let count = 0;
-    const [joiner, leaver, makeupTaker] = [students[0]!, students[1]!, students[2]!];
-
-    const mine = openRows.filter((r) => r.studentId === joiner.id).flatMap((r) => r.schedule);
-    const join = tracks.find((t) => {
-      const candidate = coursesOfTrack(t.id).map((courseId) => ({ courseId, slots: slotsOf(courseId), validFrom: today, validTo: term.endsOn }));
-      return candidate.every((c) => !mine.some((m) => m.courseId === c.courseId)) && findOverlaps([...mine, ...candidate]).length === 0;
-    });
-    if (join) {
-      await tx.insert(schema.enrollmentRequest).values({ studentId: joiner.id, termId: term.id, action: 'join', trackId: join.id, wantedStart: addDays(today, 2), note: '¡Quiero probar esta línea!' });
-      count++;
-    }
-
-    const leaving = openRows.find((r) => r.studentId === leaver.id);
-    if (leaving) {
-      await tx.insert(schema.enrollmentRequest).values({ studentId: leaver.id, termId: term.id, action: 'leave', replacesEnrollmentId: leaving.id, wantedStart: addDays(today, 7), note: 'Me cambiaron el horario del trabajo' });
-      count++;
-    }
-
-    const own = openRows.filter((r) => r.studentId === makeupTaker.id);
-    const ownCourses = own.flatMap((r) => r.schedule.map((c) => c.courseId));
-    const programId = own.find((r) => r.programId)?.programId;
-    const target = sessions
-      .filter((x) => x.startsAt > now && daysBetween(today, bogotaDate(x.startsAt)) <= 10)
-      .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
-      .find((x) => programOfCourse.get(x.courseId) === programId && !ownCourses.includes(x.courseId));
-    if (programId && target) {
-      await tx.insert(schema.makeupRequest).values({ studentId: makeupTaker.id, sessionId: target.id, programId, note: 'Para reponer la falta de la semana pasada' });
-      count++;
-    }
-    return count;
-  }
-
   return {
-    requests,
     students: students.length,
     enrollments: enrollments.length,
     attendance: attendance.length,

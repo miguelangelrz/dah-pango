@@ -22,20 +22,10 @@ export default async function AppHome() {
       {roles.length > 0 && <p className="mt-2 text-sm text-mute">{roles.join(' · ')}</p>}
       <div className="mt-8 space-y-3">
         {isStudent && (
-          <>
-            <HomeCard href="/app/clases" title="Mis clases" text="Tus próximas sesiones, avisos de falta, historial y reposiciones." />
-            <HomeCard href="/app/solicitudes" title="Mis solicitudes" text="Inscribirte, cambiarte, salir o pedir una reposición." />
-          </>
+          <HomeCard href="/app/clases" title="Mis clases" text="Tus próximas clases, avisos de falta e historial." />
         )}
         {me.permissions.includes('take_attendance') && (
           <HomeCard href="/app/asistencia" title="Asistencia" text="Las sesiones de hoy, reposiciones, visitantes y reemplazos." />
-        )}
-        {me.permissions.includes('review_requests') && (
-          <HomeCard
-            href="/app/revision"
-            title="Revisar solicitudes"
-            text="Aprueba o niega inscripciones, cambios, salidas y reposiciones."
-          />
         )}
         {me.permissions.includes('configure_academy') && (
           <HomeCard href="/app/configuracion" title="Configuración" text="Semestres, bloques y horarios de las clases." />

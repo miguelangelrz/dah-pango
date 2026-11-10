@@ -81,10 +81,10 @@ export function buildApp({ db, webOrigin, clock }: AppOptions = {}) {
     registerAttendanceRoutes(app, db, clock);
     registerStudentRoutes(app, db, clock);
   } else {
-    app.log.warn('No database configured: /auth, /admin, /attendance, /student and /requests answer 503');
-    for (const prefix of ['/student/*', '/requests', '/requests/*']) {
-      app.all(prefix, async (_req, reply) => reply.code(503).send({ error: 'Base de datos no configurada' }));
-    }
+    app.log.warn('No database configured: /auth, /admin, /attendance and /student answer 503');
+    app.all('/student/*', async (_req, reply) =>
+      reply.code(503).send({ error: 'Base de datos no configurada' }),
+    );
     app.all('/attendance/*', async (_req, reply) =>
       reply.code(503).send({ error: 'Base de datos no configurada' }),
     );
