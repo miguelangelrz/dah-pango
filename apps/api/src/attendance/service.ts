@@ -196,7 +196,7 @@ export interface MarkWrite {
   from: AttendanceState | null;
   /** null removes the person from the list (only makeups and walk-ins). */
   to: AttendanceState | null;
-  source: 'teacher' | 'director' | 'lock';
+  source: 'teacher' | 'director' | 'lock' | 'notice';
   madeBy: string | null;
   now: Date;
 }

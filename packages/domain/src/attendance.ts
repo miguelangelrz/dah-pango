@@ -34,6 +34,23 @@ export function studentCanNotify(sessionStartsAt: Date, now: Date): boolean {
   return now.getTime() <= sessionStartsAt.getTime() - NOTICE_BEFORE_HOURS * HOUR_MS;
 }
 
+/** Why a student can't send an absence notice for this sesión now, or null. */
+export function noticeProblem(
+  session: SessionTiming,
+  listedAs: { origin: AttendanceOrigin; state: AttendanceState | null } | null,
+  now: Date,
+): string | null {
+  if (session.status === 'cancelled') return 'Esta sesión fue cancelada';
+  if (session.status === 'rescheduled') return 'Esta sesión se movió a otra fecha';
+  if (!listedAs || listedAs.origin !== 'enrolled') return 'No estás inscrito en esta sesión';
+  if (listedAs.state === 'excused') return 'Ya avisaste que no vienes';
+  if (listedAs.state !== null) return 'Esta sesión ya tiene tu asistencia marcada';
+  if (!studentCanNotify(session.startsAt, now)) {
+    return 'El aviso se manda hasta 24 horas antes de la clase. Habla con tu profe.';
+  }
+  return null;
+}
+
 /** States allowed for each way a person got on the list. */
 export function allowedStates(origin: AttendanceOrigin): AttendanceState[] {
   switch (origin) {

@@ -182,6 +182,56 @@ export interface TeacherOption {
   hasAccount: boolean;
 }
 
+// Students: Mis clases and absence notices
+
+export const absenceNoticeInput = z.object({ note: z.string().trim().max(500, 'El mensaje es muy largo').optional() });
+export type AbsenceNoticeInput = z.infer<typeof absenceNoticeInput>;
+
+export interface ProgramRef {
+  id: string;
+  name: string;
+  accentColor: string | null;
+}
+
+export interface StudentSession {
+  id: string;
+  course: { id: string; title: string; style: string | null };
+  program: ProgramRef | null;
+  startsAt: string; // ISO instant
+  endsAt: string;
+  status: 'scheduled' | 'cancelled' | 'rescheduled';
+  modality: 'on_site' | 'online';
+  room: string | null;
+  teacherName: string;
+  origin: AttendanceOrigin;
+  state: AttendanceState | null;
+  noticeSent: boolean;
+  /** Last moment to send an absence notice from the app. */
+  noticeUntil: string;
+  canNotify: boolean;
+  locked: boolean;
+}
+
+export interface StudentDay {
+  date: string; // Bogotá calendar day
+  sessions: StudentSession[];
+}
+
+/** GET /student/sessions: the first days with clases from `from` on (three at most). */
+export interface StudentClassDays {
+  from: string;
+  days: StudentDay[];
+  /** Where the previous and next three class days start; null when there are none. */
+  prevFrom: string | null;
+  nextFrom: string | null;
+}
+
+/** GET /student/makeup-balances: one per programa the student is in or has a balance in. */
+export interface MakeupBalance {
+  program: ProgramRef;
+  balance: number;
+}
+
 export const enrollmentRequest = z
   .object({
     action: z.enum(['join', 'leave', 'swap']),

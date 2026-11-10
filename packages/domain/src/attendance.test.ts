@@ -6,6 +6,7 @@ import {
   enrolledOn,
   ledgerProgram,
   markProblem,
+  noticeProblem,
   writeSource,
   type SessionTiming,
 } from './index';
@@ -102,5 +103,22 @@ describe('ledgerProgram', () => {
     expect(ledgerProgram(null, [notice('amh', 3), notice('en-rouge', 9)], ['amh'])).toBe('en-rouge');
     expect(ledgerProgram(null, [], ['amh', 'en-rouge'])).toBe('amh');
     expect(ledgerProgram(null, [], [])).toBeNull();
+  });
+});
+
+describe('noticeProblem', () => {
+  const enrolled = { origin: 'enrolled' as const, state: null };
+
+  it('takes notices until 24 hours before the session', () => {
+    expect(noticeProblem(session, enrolled, bogotaInstant('2026-11-03', '18:00'))).toBeNull();
+    expect(noticeProblem(session, enrolled, bogotaInstant('2026-11-03', '18:01'))).toMatch(/24 horas/);
+  });
+
+  it('is only for enrolled students without a mark', () => {
+    const early = bogotaInstant('2026-11-01', '10:00');
+    expect(noticeProblem(session, null, early)).toMatch(/No estás inscrito/);
+    expect(noticeProblem(session, { origin: 'makeup', state: null }, early)).toMatch(/No estás inscrito/);
+    expect(noticeProblem(session, { origin: 'enrolled', state: 'excused' }, early)).toMatch(/Ya avisaste/);
+    expect(noticeProblem({ ...session, status: 'cancelled' }, enrolled, early)).toMatch(/cancelada/);
   });
 });

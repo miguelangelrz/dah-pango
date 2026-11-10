@@ -54,3 +54,4 @@ export function describeSync(s: SessionSyncSummary): string {
   }
   return text;
 }
+

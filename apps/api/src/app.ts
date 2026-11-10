@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import { registerAdminRoutes } from './admin/routes';
 import { registerAttendanceRoutes } from './attendance/routes';
 import { registerAuthRoutes } from './auth/routes';
+import { registerStudentRoutes } from './student/routes';
 
 export interface AppOptions {
   db?: Db;
@@ -78,8 +79,12 @@ export function buildApp({ db, webOrigin, clock }: AppOptions = {}) {
     registerAuthRoutes(app, db);
     registerAdminRoutes(app, db, clock);
     registerAttendanceRoutes(app, db, clock);
+    registerStudentRoutes(app, db, clock);
   } else {
-    app.log.warn('No database configured: /auth, /admin and /attendance answer 503');
+    app.log.warn('No database configured: /auth, /admin, /attendance and /student answer 503');
+    app.all('/student/*', async (_req, reply) =>
+      reply.code(503).send({ error: 'Base de datos no configurada' }),
+    );
     app.all('/attendance/*', async (_req, reply) =>
       reply.code(503).send({ error: 'Base de datos no configurada' }),
     );
