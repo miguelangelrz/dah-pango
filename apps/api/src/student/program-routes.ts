@@ -1,20 +1,13 @@
 import {
   joinRequestInput,
-  leaveRequestInput,
+  leaveCourseInput,
   swapRequestInput,
-  type ProgramLeaveResult,
+  type CourseLeaveResult,
   type StudentEnrollmentRequest,
 } from '@dah-pango/contracts';
 import type { Db } from '@dah-pango/db';
 import { schema } from '@dah-pango/db';
-import {
-  addDays,
-  bogotaDate,
-  bogotaInstant,
-  closingValidTo,
-  programLeaveLastDay,
-  type EnrollmentAction,
-} from '@dah-pango/domain';
+import { bogotaDate, bogotaInstant, leaveOnProblem, planLeave, type EnrollmentAction } from '@dah-pango/domain';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
@@ -22,13 +15,11 @@ import { Problem } from '../admin/calendar';
 import { parse } from '../auth/routes';
 import {
   checkJoin,
-  checkLeave,
   checkSwap,
   courseOptions,
   enrolledCourses,
   loadCourses,
   pendingRequests,
-  requestProgramId,
   requestsOf,
   startedToday,
   studentPrograms,
@@ -39,7 +30,7 @@ import { requireStudent } from './routes';
 import { currentTerm } from './service';
 
 // Mis programas: a student's clases per programa, the clases they could add, their requests
-// to add, change or cancel a clase (a director approves them), and leaving a whole programa
+// to add or change a clase (a director approves them), and cancelling a clase from a date
 // (no approval needed).
 
 const isUuid = (id: string | undefined): id is string => z.uuid().safeParse(id).success;
@@ -67,9 +58,11 @@ export function registerProgramRoutes(app: FastifyInstance, db: Db, clock: () =>
   app.get('/student/programs', async (req, reply) => {
     const me = await requireStudent(db, req, reply);
     if (!me) return;
-    const ctx = await contextOf(db, me.id, clock());
+    const now = clock();
+    const ctx = await contextOf(db, me.id, now);
     if (!ctx) return [];
-    return studentPrograms(db, ctx.loaded, ctx.mine);
+    const started = await startedToday(db, ctx.mine.map((m) => m.course.id), bogotaInstant(ctx.today, '00:00'), now);
+    return studentPrograms(db, ctx.loaded, ctx.mine, ctx.today, started);
   });
 
   // Clases of a programa the student could add (no programId: general clases), with what
@@ -133,60 +126,66 @@ export function registerProgramRoutes(app: FastifyInstance, db: Db, clock: () =>
 
   requestRoute('join', joinRequestInput, (ctx, body) => checkJoin(ctx, body.courseId));
   requestRoute('swap', swapRequestInput, (ctx, body) => checkSwap(ctx, body.replacesCourseId, body.courseId));
-  requestRoute('leave', leaveRequestInput, (ctx, body) => checkLeave(ctx, body.courseId));
 
-  // Leaving a whole programa applies right away: every inscripción in it closes (keeping
-  // today when one of its clases already started), and pending requests in it are withdrawn.
-  app.post<{ Params: { id: string } }>('/student/programs/:id/leave', async (req, reply) => {
+  // Cancelling a clase applies right away: from `leaveOn` the student is off its list. When
+  // the clase came with a línea, they keep the línea's other clases one by one.
+  app.post<{ Params: { id: string } }>('/student/courses/:id/leave', async (req, reply) => {
     const me = await requireStudent(db, req, reply);
     if (!me) return;
-    const programId = req.params.id;
-    if (!isUuid(programId)) return reply.code(404).send({ error: 'No encontramos ese programa' });
+    const courseId = req.params.id;
+    if (!isUuid(courseId)) return reply.code(404).send({ error: 'No estás inscrito en esa clase' });
+    const body = parse(leaveCourseInput, req.body ?? {}, reply);
+    if (!body) return;
     const now = clock();
     try {
       const result = await db.transaction(async (tx) => {
         const ctx = await contextOf(tx, me.id, now);
-        const inProgram = ctx?.mine.filter((m) => m.programId === programId) ?? [];
-        if (!ctx || inProgram.length === 0) throw new Problem(409, 'No tienes clases en este programa');
-
-        const started = await startedToday(
-          tx,
-          inProgram.map((m) => m.course.id),
-          bogotaInstant(ctx.today, '00:00'),
-          now,
-        );
-        const lastDay = programLeaveLastDay(ctx.today, started);
-        const enrollments = [...new Map(inProgram.map((m) => [m.enrollment.id, m.enrollment])).values()].filter(
-          (e) => e.closedByChange === null,
-        );
-        const closing = enrollments
-          .map((e) => ({ id: e.id, validTo: closingValidTo(e, lastDay) }))
-          .filter((c): c is { id: string; validTo: string } => c.validTo !== null);
-
-        let closedEnrollments = 0;
-        if (closing.length > 0) {
-          const [change] = await tx
-            .insert(schema.enrollmentChange)
-            .values({ studentId: me.id, effectiveOn: addDays(lastDay, 1), reason: 'Salida del programa', madeBy: me.id, madeAt: now })
-            .returning();
-          for (const c of closing) {
-            await tx
-              .update(schema.enrollment)
-              .set({ validTo: c.validTo, closedByChange: change!.id })
-              .where(eq(schema.enrollment.id, c.id));
-          }
-          closedEnrollments = closing.length;
+        const current = ctx?.mine.find((m) => m.course.id === courseId);
+        if (!ctx || !current) throw new Problem(404, 'No estás inscrito en esa clase');
+        const { enrollment } = current;
+        const started = await startedToday(tx, [courseId], bogotaInstant(ctx.today, '00:00'), now);
+        const problem = leaveOnProblem(body.leaveOn, {
+          today: ctx.today,
+          startedToday: started.has(courseId),
+          enrolledUntil: enrollment.validTo,
+        });
+        if (problem) throw new Problem(409, problem);
+        if (enrollment.closedByChange) {
+          throw new Problem(409, 'Esta clase ya tiene un cambio programado. Habla con dirección.');
         }
 
-        const withdraw = ctx.pending.filter((r) => requestProgramId(ctx.loaded, ctx.mine, r) === programId).map((r) => r.id);
+        // Clases of the línea the student doesn't also have through another inscripción.
+        const elsewhere = new Set(ctx.mine.filter((m) => m.enrollment.id !== enrollment.id).map((m) => m.course.id));
+        const others = enrollment.trackId
+          ? ctx.loaded.coursesOfTrack(enrollment.trackId).filter((id) => id !== courseId && !elsewhere.has(id))
+          : [];
+        const plan = planLeave(enrollment, body.leaveOn, others);
+        if (plan.closeValidTo === null) throw new Problem(409, 'Tu inscripción en esa clase ya termina antes de esa fecha');
+
+        const [change] = await tx
+          .insert(schema.enrollmentChange)
+          .values({ studentId: me.id, effectiveOn: body.leaveOn, reason: 'Cancelación de clase', madeBy: me.id, madeAt: now })
+          .returning();
+        await tx
+          .update(schema.enrollment)
+          .set({ validTo: plan.closeValidTo, closedByChange: change!.id })
+          .where(eq(schema.enrollment.id, enrollment.id));
+        if (plan.keep.length > 0) {
+          await tx.insert(schema.enrollment).values(
+            plan.keep.map((k) => ({ studentId: me.id, termId: ctx.term.id, ...k, openedByChange: change!.id })),
+          );
+        }
+
+        // A pending request to change this clase no longer makes sense.
+        const withdraw = ctx.pending.filter((r) => r.replacesCourseId === courseId).map((r) => r.id);
         if (withdraw.length > 0) {
           await tx
             .update(schema.enrollmentRequest)
             .set({ status: 'withdrawn' })
             .where(and(inArray(schema.enrollmentRequest.id, withdraw), eq(schema.enrollmentRequest.status, 'pending')));
         }
-        const summary: ProgramLeaveResult = { closedEnrollments, withdrawnRequests: withdraw.length };
-        return summary;
+        const left: CourseLeaveResult = { courseId, leaveOn: body.leaveOn, withdrawnRequests: withdraw.length };
+        return left;
       });
       return result;
     } catch (err) {

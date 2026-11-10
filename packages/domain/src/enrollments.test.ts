@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clashesWith, closingValidTo, programLeaveLastDay } from './enrollments';
+import { clashesWith, closingValidTo, earliestLeaveOn, leaveOnProblem, planLeave } from './enrollments';
 import { windowsOverlap } from './schedule';
 
 const term = { validFrom: '2026-07-06', validTo: '2026-12-20' };
@@ -41,10 +41,34 @@ describe('closingValidTo', () => {
   });
 });
 
-describe('programLeaveLastDay', () => {
-  it('keeps today when a clase already started', () => {
-    expect(programLeaveLastDay('2026-11-10', true)).toBe('2026-11-10');
-    expect(programLeaveLastDay('2026-11-10', false)).toBe('2026-11-09');
+describe('leaving a clase', () => {
+  const today = '2026-11-10';
+  const until = '2026-12-20';
+
+  it('starts today, or tomorrow when today\'s sesión already started', () => {
+    expect(earliestLeaveOn(today, false)).toBe(today);
+    expect(earliestLeaveOn(today, true)).toBe('2026-11-11');
+  });
+
+  it('takes a date from then until the inscripción ends', () => {
+    expect(leaveOnProblem(today, { today, startedToday: false, enrolledUntil: until })).toBeNull();
+    expect(leaveOnProblem('2026-11-09', { today, startedToday: false, enrolledUntil: until })).toMatch(/antes de hoy/);
+    expect(leaveOnProblem(today, { today, startedToday: true, enrolledUntil: until })).toMatch(/desde mañana/);
+    expect(leaveOnProblem('2026-12-21', { today, startedToday: false, enrolledUntil: until })).toMatch(/final/);
+  });
+
+  it('closes a línea the day before and keeps its other clases from that date', () => {
+    expect(planLeave({ validFrom: '2026-07-06', validTo: until }, '2026-11-17', ['house'])).toEqual({
+      closeValidTo: '2026-11-16',
+      keep: [{ courseId: 'house', validFrom: '2026-11-17', validTo: until }],
+    });
+  });
+
+  it('keeps the other clases from the start of an inscripción that has not started', () => {
+    expect(planLeave({ validFrom: '2026-11-20', validTo: until }, '2026-11-17', ['house'])).toEqual({
+      closeValidTo: '2026-11-19',
+      keep: [{ courseId: 'house', validFrom: '2026-11-20', validTo: until }],
+    });
   });
 });
 

@@ -1,19 +1,25 @@
 'use client';
 
-import type { CourseOption, ProgramLeaveResult, StudentCourse, StudentEnrollmentRequest, StudentProgram } from '@dah-pango/contracts';
+import type {
+  CourseLeaveResult,
+  CourseOption,
+  EnrolledCourse,
+  StudentCourse,
+  StudentEnrollmentRequest,
+  StudentProgram,
+} from '@dah-pango/contracts';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FormError } from '@/components/form';
 import { ProgramStripe } from '@/components/page-shell';
 import { getJson, postJson } from '@/lib/api';
-import { formatSlots } from '@/lib/format';
+import { formatDayLong, formatSlots } from '@/lib/format';
 
 /** What the student is doing right now; one at a time on the whole screen. */
 type Panel =
   | { kind: 'join'; group: string }
   | { kind: 'swap'; group: string; course: StudentCourse }
-  | { kind: 'leave'; group: string; course: StudentCourse }
-  | { kind: 'leaveProgram'; group: string };
+  | { kind: 'leave'; group: string; course: StudentCourse };
 
 /** A programa's key on this screen; general clases have no programa. */
 const groupKey = (p: StudentProgram) => p.program?.id ?? 'general';
@@ -25,7 +31,7 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
   const [openCourse, setOpenCourse] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
   const [flash, setFlash] = useState<{ group: string; text: string } | null>(null);
-  // After leaving a programa the page reloads its data from the server.
+  // After cancelling a clase the page reloads its data from the server.
   useEffect(() => setPending(initial), [initial]);
 
 
@@ -41,12 +47,14 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
     setFlash({ group, text: 'Listo. Tu solicitud quedó pendiente de aprobación del director.' });
   }
 
-  function left(result: ProgramLeaveResult) {
+  function left(group: string, course: StudentCourse, result: CourseLeaveResult) {
     setPanel(null);
-    const withdrawn = result.withdrawnRequests
-      ? ` También retiramos ${result.withdrawnRequests === 1 ? 'tu solicitud pendiente' : `tus ${result.withdrawnRequests} solicitudes pendientes`}.`
-      : '';
-    setFlash({ group: 'page', text: `Saliste del programa.${withdrawn}` });
+    setOpenCourse(null);
+    const withdrawn = result.withdrawnRequests ? ' También retiramos tu solicitud de cambio pendiente.' : '';
+    setFlash({
+      group,
+      text: `Listo. Desde el ${formatDayLong(result.leaveOn)} ya no apareces en la lista de ${course.title}.${withdrawn}`,
+    });
     router.refresh();
   }
 
@@ -80,8 +88,8 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
           ⓘ
         </span>
         <span>
-          Cualquier cambio, excepto cancelar un programa, necesita la validación del director. Mientras lo revisa, sigues en tus
-          clases como están.
+          Agregar o cambiar una clase necesita la validación del director; mientras lo revisa, sigues en tus clases como
+          están. Cancelar una clase no la necesita: se aplica desde la fecha que elijas.
         </span>
       </div>
     </div>
@@ -101,7 +109,7 @@ interface SharedProps {
   panel: Panel | null;
   open: (next: Panel | null) => void;
   sent: (group: string, request: StudentEnrollmentRequest) => void;
-  left: (result: ProgramLeaveResult) => void;
+  left: (group: string, course: StudentCourse, result: CourseLeaveResult) => void;
 }
 
 function ProgramSection({
@@ -154,7 +162,7 @@ function ProgramSection({
                 <span className="flex shrink-0 items-center">
                   {request ? (
                     <span className="badge badge-warning badge-soft">
-                      {request.action === 'leave' ? 'Cancelación pendiente' : 'Cambio pendiente'}
+                      Cambio pendiente
                     </span>
                   ) : (
                     <span aria-hidden className={`text-2xl text-mute transition ${expanded ? 'rotate-90' : ''}`}>
@@ -194,7 +202,7 @@ function ProgramSection({
               )}
               {expanded && acting?.kind === 'leave' && (
                 <div className="border-t border-base-300 p-3">
-                  <LeaveCourse course={c} group={group} onCancel={() => open(null)} onSent={sent} />
+                  <LeaveCourse course={c} onCancel={() => open(null)} onLeft={(result) => left(group, c, result)} />
                 </div>
               )}
             </li>
@@ -221,23 +229,6 @@ function ProgramSection({
         </button>
       )}
 
-      {p.program &&
-        (here?.kind === 'leaveProgram' ? (
-          <LeaveProgram program={p} onCancel={() => open(null)} onLeft={left} />
-        ) : (
-          <div className="text-right">
-            <button
-              type="button"
-              onClick={() => {
-                setOpenCourse(null);
-                open({ kind: 'leaveProgram', group });
-              }}
-              className="btn btn-ghost btn-xs rounded-full text-error"
-            >
-              Cancelar programa
-            </button>
-          </div>
-        ))}
     </section>
   );
 }
@@ -404,18 +395,17 @@ function CoursePicker({
   );
 }
 
+/** Cancelling a clase applies right away, from the date the student picks. */
 function LeaveCourse({
   course,
-  group,
   onCancel,
-  onSent,
+  onLeft,
 }: {
-  course: StudentCourse;
-  group: string;
+  course: EnrolledCourse;
   onCancel: () => void;
-  onSent: (group: string, request: StudentEnrollmentRequest) => void;
+  onLeft: (result: CourseLeaveResult) => void;
 }) {
-  const [note, setNote] = useState('');
+  const [leaveOn, setLeaveOn] = useState(course.leaveFrom);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -424,7 +414,7 @@ function LeaveCourse({
     setBusy(true);
     setError(null);
     try {
-      onSent(group, await postJson<StudentEnrollmentRequest>('/student/enrollment-requests/leave', { courseId: course.id, note: note.trim() || undefined }));
+      onLeft(await postJson<CourseLeaveResult>(`/student/courses/${course.id}/leave`, { leaveOn }));
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
@@ -434,51 +424,24 @@ function LeaveCourse({
   return (
     <form onSubmit={submit} className="space-y-3">
       <p className="text-sm">
-        Le pedimos al director que te saque de <span className="font-semibold">{course.title}</span>. Sigues en la clase hasta que la
-        apruebe.
+        Elige desde qué día ya no quieres aparecer en la lista de <span className="font-semibold">{course.title}</span>. Se aplica de
+        una vez, sin esperar al director.
       </p>
-      <NoteField value={note} onChange={setNote} />
+      <label className="block">
+        <span className="text-sm text-mute">Desde el</span>
+        <input
+          type="date"
+          required
+          value={leaveOn}
+          min={course.leaveFrom}
+          max={course.enrolledUntil}
+          onChange={(e) => setLeaveOn(e.target.value)}
+          className="input mt-1 w-full bg-base-100"
+        />
+        {leaveOn && <span className="mt-1 block text-xs text-mute first-letter:uppercase">{formatDayLong(leaveOn)}</span>}
+      </label>
       <FormError message={error} />
-      <Actions busy={busy} label="Pedir cancelación" onCancel={onCancel} danger />
-    </form>
-  );
-}
-
-/** Leaving a whole programa needs no approval, so it asks once more before going ahead. */
-function LeaveProgram({
-  program,
-  onCancel,
-  onLeft,
-}: {
-  program: StudentProgram;
-  onCancel: () => void;
-  onLeft: (result: ProgramLeaveResult) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      onLeft(await postJson<ProgramLeaveResult>(`/student/programs/${program.program!.id}/leave`));
-    } catch (err) {
-      setError((err as Error).message);
-      setBusy(false);
-    }
-  }
-
-  const count = program.courses.length;
-  return (
-    <form onSubmit={submit} className="space-y-3 rounded-box border border-error/60 bg-error/5 p-4">
-      <p className="font-semibold">¿Cancelar {program.program!.name}?</p>
-      <p className="text-sm">
-        Sales de {count === 1 ? 'tu clase' : `tus ${count} clases`} de este programa desde hoy, sin esperar al director. Si una ya empezó
-        hoy, esa sí cuenta. Para volver tendrás que pedir las clases de nuevo.
-      </p>
-      <FormError message={error} />
-      <Actions busy={busy} label="Sí, cancelar programa" onCancel={onCancel} danger />
+      <Actions busy={busy} label="Cancelar clase" onCancel={onCancel} danger />
     </form>
   );
 }

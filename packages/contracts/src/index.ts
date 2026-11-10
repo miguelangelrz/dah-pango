@@ -253,13 +253,21 @@ export interface StudentCourse {
   room: string | null;
 }
 
+/** A clase the student is in, with the dates they can drop off its list. */
+export interface EnrolledCourse extends StudentCourse {
+  /** The first day they can stop appearing on the list: today, or tomorrow if today's clase started. */
+  leaveFrom: string;
+  /** The last day of their inscripción (usually the end of the semestre). */
+  enrolledUntil: string;
+}
+
 /**
  * GET /student/programs: the programas the student has clases in from today on, then
  * general clases (program null) if they have any. Programas without clases are left out.
  */
 export interface StudentProgram {
   program: ProgramRef | null;
-  courses: StudentCourse[];
+  courses: EnrolledCourse[];
 }
 
 /** GET /student/course-options: a clase the student could add, or change one for. */
@@ -277,9 +285,9 @@ export interface StudentEnrollmentRequest {
   status: RequestStatus;
   /** The programa the request belongs to; null for general clases. */
   programId: string | null;
-  /** The clase to add or change to (join, swap). */
+  /** The clase to add or change to. */
   course: { id: string; title: string } | null;
-  /** The clase to cancel or change (swap, leave). */
+  /** The clase to change. */
   replacesCourse: { id: string; title: string } | null;
   note: string | null;
   createdAt: string;
@@ -293,12 +301,14 @@ export type JoinRequestInput = z.infer<typeof joinRequestInput>;
 export const swapRequestInput = z.object({ replacesCourseId: z.uuid(), courseId: z.uuid(), note: requestNote });
 export type SwapRequestInput = z.infer<typeof swapRequestInput>;
 
-export const leaveRequestInput = z.object({ courseId: z.uuid(), note: requestNote });
-export type LeaveRequestInput = z.infer<typeof leaveRequestInput>;
+/** POST /student/courses/:id/leave: from `leaveOn` the student no longer appears on the list. */
+export const leaveCourseInput = z.object({ leaveOn: isoDate });
+export type LeaveCourseInput = z.infer<typeof leaveCourseInput>;
 
-/** POST /student/programs/:id/leave: how many clases the student left. */
-export interface ProgramLeaveResult {
-  closedEnrollments: number;
+export interface CourseLeaveResult {
+  courseId: string;
+  leaveOn: string;
+  /** Pending requests to change this clase, withdrawn because it was cancelled. */
   withdrawnRequests: number;
 }
 

@@ -1,4 +1,4 @@
-import type { CourseOption, Me, ProgramLeaveResult, StudentEnrollmentRequest, StudentProgram } from '@dah-pango/contracts';
+import type { CourseLeaveResult, CourseOption, Me, StudentEnrollmentRequest, StudentProgram } from '@dah-pango/contracts';
 import { schema } from '@dah-pango/db';
 import { createTestDb } from '@dah-pango/db/testing';
 import { addDays, bogotaDate, bogotaInstant, isoWeekday } from '@dah-pango/domain';
@@ -167,49 +167,53 @@ describe('requests', () => {
     expect(otherProgram.statusCode).toBe(409);
   });
 
-  it('cancels one clase, once', async () => {
-    await enroll(student.me.id, { trackId });
-    expect((await post('/student/enrollment-requests/leave', { courseId: house })).statusCode).toBe(201);
-    expect((await post('/student/enrollment-requests/leave', { courseId: house })).statusCode).toBe(409);
-    expect((await post('/student/enrollment-requests/leave', { courseId: dancehall })).statusCode).toBe(404);
-    const requests = await get<StudentEnrollmentRequest[]>('/student/enrollment-requests');
-    expect(requests.map((r) => [r.action, r.replacesCourse?.title])).toEqual([['leave', 'House']]);
-  });
 });
 
-describe('leaving a programa', () => {
-  it('closes its inscripciones right away and withdraws its pending requests', async () => {
-    const running = await enroll(student.me.id, { trackId });
-    const future = await enroll(student.me.id, { courseId: breaking }, addDays(TODAY, 3));
-    await enroll(student.me.id, { courseId: dancehall });
-    await post('/student/enrollment-requests/leave', { courseId: house });
-
-    const res = await post(`/student/programs/${houseId}/leave`);
-    expect(res.json()).toEqual({ closedEnrollments: 2, withdrawnRequests: 1 } satisfies ProgramLeaveResult);
-    const rows = await db.select().from(schema.enrollment);
-    // No clase of the programa started yet today, so it ends yesterday.
-    expect(rows.find((e) => e.id === running)!.validTo).toBe(addDays(TODAY, -1));
-    expect(rows.find((e) => e.id === future)!.validTo).toBe(addDays(TODAY, 2));
-    const [request] = await db.select().from(schema.enrollmentRequest);
-    expect(request!.status).toBe('withdrawn');
-
-    const programs = await get<StudentProgram[]>('/student/programs');
-    expect(programs.map((p) => [p.program?.name, p.courses.map((c) => c.title)])).toEqual([['En Rouge', ['Dancehall']]]);
-    expect((await post(`/student/programs/${houseId}/leave`)).statusCode).toBe(409);
+describe('cancelling a clase', () => {
+  it('drops a single clase from the chosen date, with no approval', async () => {
+    const enrollmentId = await enroll(student.me.id, { courseId: dancehall });
+    const leaveOn = addDays(TODAY, 7);
+    const res = await post(`/student/courses/${dancehall}/leave`, { leaveOn });
+    expect(res.json()).toEqual({ courseId: dancehall, leaveOn, withdrawnRequests: 0 } satisfies CourseLeaveResult);
+    const [row] = await db.select().from(schema.enrollment).where(eq(schema.enrollment.id, enrollmentId));
+    expect(row!.validTo).toBe(addDays(TODAY, 6));
+    const [change] = await db.select().from(schema.enrollmentChange).where(eq(schema.enrollmentChange.id, row!.closedByChange!));
+    expect(change).toMatchObject({ effectiveOn: leaveOn, reason: 'Cancelación de clase', requestId: null });
   });
 
-  it('keeps today when one of its clases already started', async () => {
-    const running = await enroll(student.me.id, { trackId });
-    const [teacher] = await db.select().from(schema.person).where(eq(schema.person.id, student.me.id));
+  it('keeps the other clases of a línea one by one, and withdraws a pending change', async () => {
+    const enrollmentId = await enroll(student.me.id, { trackId });
+    await post('/student/enrollment-requests/swap', { replacesCourseId: house, courseId: breaking });
+    const res = await post(`/student/courses/${house}/leave`, { leaveOn: addDays(TODAY, 1) });
+    expect((res.json() as CourseLeaveResult).withdrawnRequests).toBe(1);
+
+    const rows = await db.select().from(schema.enrollment);
+    expect(rows.find((e) => e.id === enrollmentId)!.validTo).toBe(TODAY);
+    const kept = rows.filter((e) => e.id !== enrollmentId);
+    expect(kept.map((e) => [e.courseId, e.validFrom, e.validTo])).toEqual([[funcional, addDays(TODAY, 1), addDays(TODAY, 60)]]);
+    // Today the student still has both clases; from tomorrow, only Funcional.
+    const programs = await get<StudentProgram[]>('/student/programs');
+    expect(programs[0]!.courses.map((c) => c.title)).toEqual(['Funcional', 'House']);
+  });
+
+  it('refuses dates before today, and today once the clase started', async () => {
+    await enroll(student.me.id, { trackId });
+    const yesterday = await post(`/student/courses/${house}/leave`, { leaveOn: addDays(TODAY, -1) });
+    expect(yesterday.statusCode).toBe(409);
     await db.insert(schema.session).values({
       courseId: funcional,
       termId,
       startsAt: bogotaInstant(TODAY, '18:00'),
       endsAt: bogotaInstant(TODAY, '19:00'),
-      teacherId: teacher!.id,
+      teacherId: student.me.id,
     });
-    await post(`/student/programs/${houseId}/leave`);
-    const [row] = await db.select().from(schema.enrollment).where(eq(schema.enrollment.id, running));
-    expect(row!.validTo).toBe(TODAY);
+    const programs = await get<StudentProgram[]>('/student/programs');
+    expect(programs[0]!.courses.map((c) => [c.title, c.leaveFrom])).toEqual([
+      ['Funcional', addDays(TODAY, 1)],
+      ['House', TODAY],
+    ]);
+    const today = await post(`/student/courses/${funcional}/leave`, { leaveOn: TODAY });
+    expect(today.json().error).toContain('mañana');
+    expect((await post(`/student/courses/${dancehall}/leave`, { leaveOn: TODAY })).statusCode).toBe(404);
   });
 });

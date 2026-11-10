@@ -1,8 +1,16 @@
-import type { ClassSlot, CourseOption, StudentCourse, StudentEnrollmentRequest, StudentProgram } from '@dah-pango/contracts';
+import type {
+  ClassSlot,
+  CourseOption,
+  EnrolledCourse as EnrolledCourseView,
+  StudentCourse,
+  StudentEnrollmentRequest,
+  StudentProgram,
+} from '@dah-pango/contracts';
 import type { Db } from '@dah-pango/db';
 import { schema } from '@dah-pango/db';
 import {
   clashesWith,
+  earliestLeaveOn,
   parseIsoDate,
   type EnrollmentAction,
   type IsoDate,
@@ -137,19 +145,27 @@ const byFirstSlot = (loaded: LoadedCourses) => (a: CourseRow, b: CourseRow) => {
   return key(sa).localeCompare(key(sb)) || a.title.localeCompare(b.title, 'es');
 };
 
-/** The programas (by name) the student has clases in, then general clases if they have any. */
+/**
+ * The programas (by name) the student has clases in, then general clases if they have any.
+ * `startedToday` holds the clases whose sesión already started today.
+ */
 export async function studentPrograms(
   db: Db,
   loaded: LoadedCourses,
   mine: EnrolledCourse[],
+  today: IsoDate,
+  startedToday: Set<string>,
 ): Promise<StudentProgram[]> {
   const programs = [...(await programsById(db)).values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
-  const coursesIn = (programId: string | null) =>
+  const coursesIn = (programId: string | null): EnrolledCourseView[] =>
     mine
       .filter((m) => m.programId === programId)
-      .map((m) => m.course)
-      .sort(byFirstSlot(loaded))
-      .map((c) => studentCourseView(loaded, c));
+      .sort((a, b) => byFirstSlot(loaded)(a.course, b.course))
+      .map((m) => ({
+        ...studentCourseView(loaded, m.course),
+        leaveFrom: earliestLeaveOn(today, startedToday.has(m.course.id)),
+        enrolledUntil: m.enrollment.validTo,
+      }));
   return [
     ...programs.map((program) => ({ program, courses: coursesIn(program.id) })),
     { program: null, courses: coursesIn(null) },
@@ -288,17 +304,11 @@ export function checkSwap(ctx: RequestContext, replacesCourseId: string, courseI
   return { courseId, replacesEnrollmentId: current.enrollment.id, replacesCourseId };
 }
 
-/** Checks a request to cancel one clase. */
-export function checkLeave(ctx: RequestContext, courseId: string): RequestTarget {
-  const current = enrolledIn(ctx, courseId);
-  return { courseId: null, replacesEnrollmentId: current.enrollment.id, replacesCourseId: courseId };
-}
-
-/** Whether one of these clases has a sesión that started between `dayStart` and `now`. */
-export async function startedToday(db: Db, courseIds: string[], dayStart: Date, now: Date): Promise<boolean> {
-  if (courseIds.length === 0) return false;
-  const [row] = await db
-    .select({ id: schema.session.id })
+/** The clases among `courseIds` with a sesión that started between `dayStart` and `now`. */
+export async function startedToday(db: Db, courseIds: string[], dayStart: Date, now: Date): Promise<Set<string>> {
+  if (courseIds.length === 0) return new Set();
+  const rows = await db
+    .select({ courseId: schema.session.courseId })
     .from(schema.session)
     .where(
       and(
@@ -307,7 +317,6 @@ export async function startedToday(db: Db, courseIds: string[], dayStart: Date, 
         gte(schema.session.startsAt, dayStart),
         lte(schema.session.startsAt, now),
       ),
-    )
-    .limit(1);
-  return Boolean(row);
+    );
+  return new Set(rows.map((r) => r.courseId));
 }
