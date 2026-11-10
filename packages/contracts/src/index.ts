@@ -3,8 +3,10 @@ import {
   type AttendanceOrigin,
   type AttendanceState,
   DOCUMENT_TYPES,
+  type EnrollmentAction,
   type LegalDocumentKind,
   type Permission,
+  type RequestStatus,
   type Role,
 } from '@dah-pango/domain';
 import { z } from 'zod';
@@ -232,19 +234,83 @@ export interface MakeupBalance {
   balance: number;
 }
 
-export const enrollmentRequest = z
-  .object({
-    action: z.enum(['join', 'leave', 'swap']),
-    trackId: z.uuid().optional(),
-    courseId: z.uuid().optional(),
-    replacesEnrollmentId: z.uuid().optional(),
-    wantedStart: isoDate.optional(),
-    note: z.string().max(500).optional(),
-  })
-  .refine((r) => r.action === 'leave' || Boolean(r.trackId) !== Boolean(r.courseId), {
-    message: 'Elige una línea o una clase',
-  });
-export type EnrollmentRequest = z.infer<typeof enrollmentRequest>;
+// Students: Mis programas (their clases per programa) and requests to change them
+
+export interface ClassSlot {
+  weekday: number; // 1 = Monday ... 7 = Sunday
+  startsAt: string; // 'HH:MM'
+  endsAt: string;
+}
+
+/** A weekly clase as the student sees it when managing their programas. */
+export interface StudentCourse {
+  id: string;
+  title: string;
+  style: string | null;
+  slots: ClassSlot[];
+  teacherName: string | null;
+  modality: 'on_site' | 'online';
+  room: string | null;
+}
+
+/** A clase the student is in, with the dates they can drop off its list. */
+export interface EnrolledCourse extends StudentCourse {
+  /** The first day they can stop appearing on the list: today, or tomorrow if today's clase started. */
+  leaveFrom: string;
+  /** The last day of their inscripción (usually the end of the semestre). */
+  enrolledUntil: string;
+}
+
+/**
+ * GET /student/programs: the programas the student has clases in from today on, then
+ * general clases (program null) if they have any. Programas without clases are left out.
+ */
+export interface StudentProgram {
+  program: ProgramRef | null;
+  courses: EnrolledCourse[];
+}
+
+/** GET /student/course-options: a clase the student could add, or change one for. */
+export interface CourseOption extends StudentCourse {
+  /** Titles of the student's clases it overlaps; it can't be picked while not empty. */
+  clashesWith: string[];
+  /** The student already asked to add it (or to change to it). */
+  requested: boolean;
+}
+
+/** GET /student/enrollment-requests: the student's requests this semestre, newest first. */
+export interface StudentEnrollmentRequest {
+  id: string;
+  action: EnrollmentAction;
+  status: RequestStatus;
+  /** The programa the request belongs to; null for general clases. */
+  programId: string | null;
+  /** The clase to add or change to. */
+  course: { id: string; title: string } | null;
+  /** The clase to change. */
+  replacesCourse: { id: string; title: string } | null;
+  note: string | null;
+  createdAt: string;
+}
+
+const requestNote = z.string().trim().max(500, 'El mensaje es muy largo').optional();
+
+export const joinRequestInput = z.object({ courseId: z.uuid(), note: requestNote });
+export type JoinRequestInput = z.infer<typeof joinRequestInput>;
+
+export const swapRequestInput = z.object({ replacesCourseId: z.uuid(), courseId: z.uuid(), note: requestNote });
+export type SwapRequestInput = z.infer<typeof swapRequestInput>;
+
+/** POST /student/courses/:id/leave: from `leaveOn` the student no longer appears on the list. */
+export const leaveCourseInput = z.object({ leaveOn: isoDate });
+export type LeaveCourseInput = z.infer<typeof leaveCourseInput>;
+
+export interface CourseLeaveResult {
+  courseId: string;
+  leaveOn: string;
+  /** Pending requests to change this clase, withdrawn because it was cancelled. */
+  withdrawnRequests: number;
+}
 
 export const makeupRequest = z.object({
   sessionId: z.uuid(),

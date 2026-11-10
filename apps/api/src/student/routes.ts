@@ -17,7 +17,7 @@ const DAYS_SHOWN = 3;
 /** How far to look for the next or previous days with clases. */
 const LOOK_DAYS = 120;
 
-async function requireStudent(db: Db, req: FastifyRequest, reply: FastifyReply) {
+export async function requireStudent(db: Db, req: FastifyRequest, reply: FastifyReply) {
   const me = await requireMember(db, req, reply);
   if (!me) return null;
   if (!can(me.roles, 'send_requests')) {

@@ -6,3 +6,4 @@ export * from './schedule';
 export * from './identity';
 export * from './roles';
 export * from './calendar';
+export * from './enrollments';
