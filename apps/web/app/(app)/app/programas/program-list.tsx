@@ -405,7 +405,7 @@ function LeaveCourse({
   onCancel: () => void;
   onLeft: (result: CourseLeaveResult) => void;
 }) {
-  const [leaveOn, setLeaveOn] = useState(course.leaveFrom);
+  const [leaveOn, setLeaveOn] = useState(course.leaveFrom ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
