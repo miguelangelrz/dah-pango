@@ -263,7 +263,8 @@ export const enrollment = pgTable(
   },
   (t) => [
     check('enrollment_target_check', sql`(${t.trackId} is null) <> (${t.courseId} is null)`),
-    check('enrollment_dates_check', sql`${t.validFrom} <= ${t.validTo}`),
+    // valid_to may be the day before valid_from: an inscripción closed before it started.
+    check('enrollment_dates_check', sql`${t.validFrom} <= ${t.validTo} + 1`),
   ],
 );
 
@@ -282,6 +283,8 @@ export const enrollmentRequest = pgTable(
     trackId: uuid('track_id').references(() => track.id),
     courseId: uuid('course_id').references(() => course.id),
     replacesEnrollmentId: uuid('replaces_enrollment_id').references(() => enrollment.id),
+    // The clase being changed or cancelled; needed when the inscripción is a whole línea.
+    replacesCourseId: uuid('replaces_course_id').references(() => course.id),
     wantedStart: date('wanted_start'),
     note: text('note'),
     status: text('status').notNull().default('pending'),

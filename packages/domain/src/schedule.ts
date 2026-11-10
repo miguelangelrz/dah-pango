@@ -25,6 +25,10 @@ export function slotsOverlap(a: WeeklySlot, b: WeeklySlot): boolean {
 }
 
 export function windowsOverlap(a: DatedWindow, b: DatedWindow): boolean {
+  // An inscripción closed before it started covers no day.
+  if (parseIsoDate(a.validFrom) > parseIsoDate(a.validTo) || parseIsoDate(b.validFrom) > parseIsoDate(b.validTo)) {
+    return false;
+  }
   return (
     parseIsoDate(a.validFrom) <= parseIsoDate(b.validTo) &&
     parseIsoDate(b.validFrom) <= parseIsoDate(a.validTo)

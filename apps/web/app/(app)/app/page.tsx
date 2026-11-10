@@ -24,6 +24,9 @@ export default async function AppHome() {
         {isStudent && (
           <HomeCard href="/app/clases" title="Mis clases" text="Tus próximas clases, avisos de falta e historial." />
         )}
+        {isStudent && (
+          <HomeCard href="/app/programas" title="Mis programas" text="Tus clases por programa: agrega, cambia o cancela." />
+        )}
         {me.permissions.includes('take_attendance') && (
           <HomeCard href="/app/asistencia" title="Asistencia" text="Las sesiones de hoy, reposiciones, visitantes y reemplazos." />
         )}

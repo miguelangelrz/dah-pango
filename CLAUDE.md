@@ -53,7 +53,9 @@ Built: attendance for teachers, directors and super admins (`apps/api/src/attend
 
 Built: Mis clases for students (`apps/api/src/student`, web `/app/clases`): the next three days with clases (skipping empty days, paged with `?from=`; API `GET /student/sessions`, `/student/history`, `/student/makeup-balances`), a small makeup balance per programa, the semestre's history, and "No voy" absence notices until 24 h before (`noticeProblem`: marks `excused` with source `notice` and earns a credit).
 
-Not built yet: student requests (enrollments, changes, makeups) and their director review, a reposiciones view, cancel/reschedule screens, creating or editing clases themselves (title, teacher, líneas), special clases with outside sign-ups.
+Built: Mis programas for students (`apps/api/src/student/program-routes.ts`, web `/app/programas`): the student's weekly clases grouped by programa (líneas stay internal), requests to add, change or cancel a clase (`POST /student/enrollment-requests/{join,swap,leave}`, stored in `enrollment_request` with `replaces_course_id`), clase options as cards with clashes shown disabled (`GET /student/course-options`), and leaving a whole programa right away without approval (`POST /student/programs/:id/leave`: closes its inscripciones from today, or after today when a clase already started, and withdraws its pending requests). An inscripción closed before it started ends the day before `valid_from`.
+
+Not built yet: the requests list for students, director review of requests (applying approved changes), makeup requests, a reposiciones view, cancel/reschedule screens, creating or editing clases themselves (title, teacher, líneas), special clases with outside sign-ups.
 
 ## Commands
 

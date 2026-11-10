@@ -55,3 +55,29 @@ export function describeSync(s: SessionSyncSummary): string {
   return text;
 }
 
+
+const SHORT_WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const clockFormat = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+
+/** A wall time 'HH:MM' as '6:00 p. m.'. */
+export function formatClock(time: string): string {
+  return clockFormat.format(new Date(`1970-01-01T${time}:00Z`)).replace(/ /g, ' ');
+}
+
+/**
+ * Weekly slots as one line per time, with the days that share it:
+ * 'Lun y Mié · 6:00 p. m. – 7:00 p. m.'.
+ */
+export function formatSlots(slots: { weekday: number; startsAt: string; endsAt: string }[]): string[] {
+  const byTime = new Map<string, number[]>();
+  for (const s of slots) {
+    const key = `${s.startsAt}-${s.endsAt}`;
+    byTime.set(key, [...(byTime.get(key) ?? []), s.weekday]);
+  }
+  return [...byTime].map(([key, days]) => {
+    const [startsAt, endsAt] = key.split('-') as [string, string];
+    const names = days.map((d) => SHORT_WEEKDAYS[d - 1] ?? '');
+    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} y ${names.at(-1)}` : names[0];
+    return `${list} · ${formatClock(startsAt)} – ${formatClock(endsAt)}`;
+  });
+}

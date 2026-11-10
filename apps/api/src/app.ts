@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import { registerAdminRoutes } from './admin/routes';
 import { registerAttendanceRoutes } from './attendance/routes';
 import { registerAuthRoutes } from './auth/routes';
+import { registerProgramRoutes } from './student/program-routes';
 import { registerStudentRoutes } from './student/routes';
 
 export interface AppOptions {
@@ -80,6 +81,7 @@ export function buildApp({ db, webOrigin, clock }: AppOptions = {}) {
     registerAdminRoutes(app, db, clock);
     registerAttendanceRoutes(app, db, clock);
     registerStudentRoutes(app, db, clock);
+    registerProgramRoutes(app, db, clock);
   } else {
     app.log.warn('No database configured: /auth, /admin, /attendance and /student answer 503');
     app.all('/student/*', async (_req, reply) =>
