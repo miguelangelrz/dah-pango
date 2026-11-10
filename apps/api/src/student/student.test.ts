@@ -1,4 +1,4 @@
-import type { Me, StudentHome } from '@dah-pango/contracts';
+import type { MakeupBalance, Me, StudentClassDays, StudentSession } from '@dah-pango/contracts';
 import { schema } from '@dah-pango/db';
 import { createTestDb } from '@dah-pango/db/testing';
 import { addDays, bogotaDate, bogotaInstant, isoWeekday } from '@dah-pango/domain';
@@ -111,8 +111,34 @@ beforeEach(async () => {
   teacherId = teacher.me.id;
 });
 
-describe('mis clases', () => {
-  it('shows inscripciones, the coming sesiones, past marks and the balance', async () => {
+describe('class days', () => {
+  it('shows three days with clases at a time, skipping empty days, and pages both ways', async () => {
+    const sofia = await member('100', [], 'Sofía');
+    await enroll(sofia.me.id);
+    const dates = [0, 1, 7, 8, 14].map((d) => addDays(TODAY, d));
+    for (const d of dates) await sessionOn(d, courseId, ['20:00', '21:00']);
+
+    const first = (await get('/student/sessions', sofia.cookie)).json() as StudentClassDays;
+    expect(first.from).toBe(TODAY);
+    expect(first.days.map((d) => d.date)).toEqual(dates.slice(0, 3));
+    expect(first.days[0]!.sessions[0]!.canNotify).toBe(false); // less than 24 hours away
+    expect(first.days[2]!.sessions[0]!.canNotify).toBe(true);
+    expect(first.prevFrom).toBeNull();
+    expect(first.nextFrom).toBe(dates[3]);
+
+    const second = (await get(`/student/sessions?from=${first.nextFrom}`, sofia.cookie)).json() as StudentClassDays;
+    expect(second.days.map((d) => d.date)).toEqual(dates.slice(3));
+    expect(second.nextFrom).toBeNull();
+    expect(second.prevFrom).toBe(dates[0]);
+  });
+
+  it('needs a login', async () => {
+    expect((await get('/student/sessions', '')).statusCode).toBe(401);
+  });
+});
+
+describe('history and makeup balances', () => {
+  it('lists this semestre’s past sesiones with their marks, and the balance per programa', async () => {
     const sofia = await member('100', [], 'Sofía');
     await enroll(sofia.me.id);
     const past = await sessionOn(addDays(TODAY, -7));
@@ -122,37 +148,10 @@ describe('mis clases', () => {
       await tx.insert(schema.attendance).values({ sessionId: past, personId: sofia.me.id, state: 'present', origin: 'enrolled' });
     });
 
-    const res = await get('/student/home', sofia.cookie);
-    expect(res.statusCode).toBe(200);
-    const home = res.json() as StudentHome;
-    expect(home.days.map((d) => d.date)).toEqual([addDays(TODAY, 7)]);
-    expect(home.days[0]!.sessions[0]!.canNotify).toBe(true);
-    expect(home.history.map((s) => [s.id, s.state])).toEqual([[past, 'present']]);
-    expect(home.balances).toEqual([{ program: expect.objectContaining({ name: 'At My House' }), balance: 0 }]);
-  });
-
-  it('needs a login', async () => {
-    expect((await get('/student/home', '')).statusCode).toBe(401);
-  });
-});
-
-describe('days with clases', () => {
-  it('shows three days with clases at a time, skipping empty days, and pages both ways', async () => {
-    const sofia = await member('100', [], 'Sofía');
-    await enroll(sofia.me.id);
-    const dates = [0, 1, 7, 8, 14].map((d) => addDays(TODAY, d));
-    for (const d of dates) await sessionOn(d, courseId, ['20:00', '21:00']);
-
-    const first = (await get('/student/home', sofia.cookie)).json() as StudentHome;
-    expect(first.from).toBe(TODAY);
-    expect(first.days.map((d) => d.date)).toEqual(dates.slice(0, 3));
-    expect(first.prevFrom).toBeNull();
-    expect(first.nextFrom).toBe(dates[3]);
-
-    const second = (await get(`/student/home?desde=${first.nextFrom}`, sofia.cookie)).json() as StudentHome;
-    expect(second.days.map((d) => d.date)).toEqual(dates.slice(3));
-    expect(second.nextFrom).toBeNull();
-    expect(second.prevFrom).toBe(dates[0]);
+    const history = (await get('/student/history', sofia.cookie)).json() as StudentSession[];
+    expect(history.map((s) => [s.id, s.state])).toEqual([[past, 'present']]);
+    const balances = (await get('/student/makeup-balances', sofia.cookie)).json() as MakeupBalance[];
+    expect(balances).toEqual([{ program: expect.objectContaining({ name: 'At My House' }), balance: 0 }]);
   });
 });
 

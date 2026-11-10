@@ -217,18 +217,19 @@ export interface StudentDay {
   sessions: StudentSession[];
 }
 
-export interface StudentHome {
-  term: { id: string; name: string; startsOn: string; endsOn: string } | null;
-  /** Makeup balance per programa the student is in (or has a balance in). */
-  balances: { program: ProgramRef; balance: number }[];
-  /** The first days with clases from `from` on (three at most). */
+/** GET /student/sessions: the first days with clases from `from` on (three at most). */
+export interface StudentClassDays {
   from: string;
   days: StudentDay[];
   /** Where the previous and next three class days start; null when there are none. */
   prevFrom: string | null;
   nextFrom: string | null;
-  /** Past sesiones of this semestre, newest first. */
-  history: StudentSession[];
+}
+
+/** GET /student/makeup-balances: one per programa the student is in or has a balance in. */
+export interface MakeupBalance {
+  program: ProgramRef;
+  balance: number;
 }
 
 export const enrollmentRequest = z

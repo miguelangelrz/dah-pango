@@ -1,4 +1,4 @@
-import type { StudentHome } from '@dah-pango/contracts';
+import type { MakeupBalance, StudentClassDays, StudentSession } from '@dah-pango/contracts';
 import { bogotaDate } from '@dah-pango/domain';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -10,12 +10,16 @@ import { ClassDays, StateBadge } from './class-days';
 /** History rows shown before "Ver todo". */
 const RECENT = 8;
 
-export default async function MyClassesPage({ searchParams }: { searchParams: Promise<{ desde?: string }> }) {
-  const { desde } = await searchParams;
-  const home = await apiGet<StudentHome>(`/student/home${desde ? `?desde=${encodeURIComponent(desde)}` : ''}`);
-  if (!home) redirect('/app');
+export default async function MyClassesPage({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
+  const { from } = await searchParams;
+  const [classDays, history, balances] = await Promise.all([
+    apiGet<StudentClassDays>(`/student/sessions${from ? `?from=${encodeURIComponent(from)}` : ''}`),
+    apiGet<StudentSession[]>('/student/history'),
+    apiGet<MakeupBalance[]>('/student/makeup-balances'),
+  ]);
+  if (!classDays || !history || !balances) redirect('/app');
   const today = bogotaDate(new Date());
-  const withBalance = home.balances.filter((b) => b.balance !== 0);
+  const withBalance = balances.filter((b) => b.balance !== 0);
 
   return (
     <PageShell title="Mis clases">
@@ -37,8 +41,8 @@ export default async function MyClassesPage({ searchParams }: { searchParams: Pr
             Próximas clases
           </h2>
           <nav className="flex items-center gap-1" aria-label="Moverse entre fechas">
-            {home.prevFrom ? (
-              <Link href={`/app/clases?desde=${home.prevFrom}`} className="btn btn-circle btn-ghost btn-sm" aria-label="Clases anteriores">
+            {classDays.prevFrom ? (
+              <Link href={`/app/clases?from=${classDays.prevFrom}`} className="btn btn-circle btn-ghost btn-sm" aria-label="Clases anteriores">
                 ‹
               </Link>
             ) : (
@@ -46,8 +50,8 @@ export default async function MyClassesPage({ searchParams }: { searchParams: Pr
                 ‹
               </span>
             )}
-            {home.nextFrom ? (
-              <Link href={`/app/clases?desde=${home.nextFrom}`} className="btn btn-circle btn-ghost btn-sm" aria-label="Clases siguientes">
+            {classDays.nextFrom ? (
+              <Link href={`/app/clases?from=${classDays.nextFrom}`} className="btn btn-circle btn-ghost btn-sm" aria-label="Clases siguientes">
                 ›
               </Link>
             ) : (
@@ -57,15 +61,15 @@ export default async function MyClassesPage({ searchParams }: { searchParams: Pr
             )}
           </nav>
         </div>
-        {home.from !== today && (
+        {classDays.from !== today && (
           <p className="-mt-2 text-sm text-mute">
-            Desde el {formatDate(home.from)} ·{' '}
+            Desde el {formatDate(classDays.from)} ·{' '}
             <Link href="/app/clases" className="link">
               Volver a hoy
             </Link>
           </p>
         )}
-        <ClassDays initial={home.days} today={today} />
+        <ClassDays initial={classDays.days} today={today} />
         <p className="text-xs text-mute">
           ¿No puedes ir? Toca «No voy» hasta 24 horas antes y ganas una reposición. Después de eso, avísale a tu profe.
         </p>
@@ -75,19 +79,19 @@ export default async function MyClassesPage({ searchParams }: { searchParams: Pr
         <h2 id="history" className="font-display text-3xl uppercase">
           Historial
         </h2>
-        {home.history.length === 0 ? (
+        {history.length === 0 ? (
           <p className="text-sm text-mute">Todavía no hay clases pasadas este semestre.</p>
         ) : (
-          <HistorySummary history={home.history} />
+          <HistorySummary history={history} />
         )}
-        <HistoryList sessions={home.history.slice(0, RECENT)} />
-        {home.history.length > RECENT && (
+        <HistoryList sessions={history.slice(0, RECENT)} />
+        {history.length > RECENT && (
           <details className="group">
             <summary className="btn btn-ghost btn-sm cursor-pointer rounded-full group-open:hidden">
-              Ver todo el historial ({home.history.length})
+              Ver todo el historial ({history.length})
             </summary>
             <div className="mt-2">
-              <HistoryList sessions={home.history.slice(RECENT)} />
+              <HistoryList sessions={history.slice(RECENT)} />
             </div>
           </details>
         )}
@@ -96,7 +100,7 @@ export default async function MyClassesPage({ searchParams }: { searchParams: Pr
   );
 }
 
-function HistorySummary({ history }: { history: StudentHome['history'] }) {
+function HistorySummary({ history }: { history: StudentSession[] }) {
   const count = (states: string[]) => history.filter((s) => s.state && states.includes(s.state)).length;
   const parts = [
     [count(['present', 'makeup']), 'asistencias'],
@@ -107,7 +111,7 @@ function HistorySummary({ history }: { history: StudentHome['history'] }) {
   return <p className="text-sm text-mute">Este semestre: {parts.map(([n, label]) => `${n} ${label}`).join(' · ')}.</p>;
 }
 
-function HistoryList({ sessions }: { sessions: StudentHome['history'] }) {
+function HistoryList({ sessions }: { sessions: StudentSession[] }) {
   if (sessions.length === 0) return null;
   return (
     <ul className="divide-y divide-base-300 rounded-box border border-base-300 bg-base-200">

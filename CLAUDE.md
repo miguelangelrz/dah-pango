@@ -51,7 +51,7 @@ Built: academy configuration for directors and super admins (`apps/api/src/admin
 
 Built: attendance for teachers, directors and super admins (`apps/api/src/attendance`, web `/app/asistencia`): the day's sesiones and open ones still to mark, marking, makeups (debit the clase's programa, or `ledgerProgram` for general clases), walk-ins (matched by document), handing a sesión to another teacher or a guest (logged in `session_handoff`). The lock job (`lockDueSessions`) runs every 10 minutes and before attendance is shown; it stamps `session.locked_at`.
 
-Built: Mis clases for students (`apps/api/src/student`, web `/app/clases`): the next three days with clases (skipping empty days, paged with `?desde=`), a small makeup balance per programa, the semestre's history, and "No voy" absence notices until 24 h before (`noticeProblem`: marks `excused` with source `notice` and earns a credit).
+Built: Mis clases for students (`apps/api/src/student`, web `/app/clases`): the next three days with clases (skipping empty days, paged with `?from=`; API `GET /student/sessions`, `/student/history`, `/student/makeup-balances`), a small makeup balance per programa, the semestre's history, and "No voy" absence notices until 24 h before (`noticeProblem`: marks `excused` with source `notice` and earns a credit).
 
 Not built yet: student requests (enrollments, changes, makeups) and their director review, a reposiciones view, cancel/reschedule screens, creating or editing clases themselves (title, teacher, líneas), special clases with outside sign-ups.
 
