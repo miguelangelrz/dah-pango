@@ -254,8 +254,8 @@ export interface StudentCourse {
 }
 
 /**
- * GET /student/programs: every programa, plus general clases (program null), with the
- * clases the student is enrolled in from today on (empty when they are in none).
+ * GET /student/programs: the programas the student has clases in from today on, then
+ * general clases (program null) if they have any. Programas without clases are left out.
  */
 export interface StudentProgram {
   program: ProgramRef | null;

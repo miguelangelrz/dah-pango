@@ -112,12 +112,11 @@ beforeEach(async () => {
 });
 
 describe('Mis programas', () => {
-  it('lists every programa with the clases the student is in, líneas flattened', async () => {
+  it('lists only the programas the student has clases in, líneas flattened', async () => {
     await enroll(student.me.id, { trackId });
     const programs = await get<StudentProgram[]>('/student/programs');
-    expect(programs.map((p) => p.program?.name ?? null)).toEqual(['At My House', 'En Rouge', null]);
+    expect(programs.map((p) => p.program?.name ?? null)).toEqual(['At My House']);
     expect(programs[0]!.courses.map((c) => c.title)).toEqual(['Funcional', 'House']);
-    expect(programs[1]!.courses).toEqual([]);
   });
 
   it('offers the clases not taken yet, marking the ones that clash', async () => {
@@ -195,8 +194,7 @@ describe('leaving a programa', () => {
     expect(request!.status).toBe('withdrawn');
 
     const programs = await get<StudentProgram[]>('/student/programs');
-    expect(programs[0]!.courses).toEqual([]);
-    expect(programs[1]!.courses.map((c) => c.title)).toEqual(['Dancehall']);
+    expect(programs.map((p) => [p.program?.name, p.courses.map((c) => c.title)])).toEqual([['En Rouge', ['Dancehall']]]);
     expect((await post(`/student/programs/${houseId}/leave`)).statusCode).toBe(409);
   });
 

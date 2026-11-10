@@ -63,7 +63,7 @@ function sendProblem(reply: FastifyReply, err: unknown) {
 }
 
 export function registerProgramRoutes(app: FastifyInstance, db: Db, clock: () => Date = () => new Date()) {
-  // Every programa, then general clases, with the clases the student is in from today on.
+  // The programas the student has clases in from today on, then general clases if any.
   app.get('/student/programs', async (req, reply) => {
     const me = await requireStudent(db, req, reply);
     if (!me) return;

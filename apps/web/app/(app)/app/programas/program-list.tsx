@@ -28,8 +28,6 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
   // After leaving a programa the page reloads its data from the server.
   useEffect(() => setPending(initial), [initial]);
 
-  const mine = programs.filter((p) => p.courses.length > 0);
-  const others = programs.filter((p) => p.courses.length === 0);
 
   function open(next: Panel | null) {
     setPanel(next);
@@ -48,7 +46,7 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
     const withdrawn = result.withdrawnRequests
       ? ` También retiramos ${result.withdrawnRequests === 1 ? 'tu solicitud pendiente' : `tus ${result.withdrawnRequests} solicitudes pendientes`}.`
       : '';
-    setFlash({ group: 'others', text: `Saliste del programa.${withdrawn}` });
+    setFlash({ group: 'page', text: `Saliste del programa.${withdrawn}` });
     router.refresh();
   }
 
@@ -56,13 +54,14 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
 
   return (
     <div className="space-y-8">
-      {mine.length === 0 && (
+      {flash?.group === 'page' && <Flash text={flash.text} />}
+      {programs.length === 0 && (
         <p className="rounded-box border border-dashed border-base-300 p-6 text-center text-mute">
-          No estás inscrito en ninguna clase este semestre. Elige un programa abajo para pedir tu primera clase.
+          No estás inscrito en ninguna clase este semestre.
         </p>
       )}
 
-      {mine.map((p) => (
+      {programs.map((p) => (
         <ProgramSection
           key={groupKey(p)}
           program={p}
@@ -75,38 +74,6 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
           {...shared}
         />
       ))}
-
-      {others.length > 0 && (
-        <section aria-labelledby="others" className="space-y-3">
-          <h2 id="others" className="font-display text-2xl uppercase text-mute">
-            {mine.length > 0 ? 'Otros programas' : 'Programas'}
-          </h2>
-          {flash?.group === 'others' && <Flash text={flash.text} />}
-          <ul className="space-y-2">
-            {others.map((p) => {
-              const group = groupKey(p);
-              const asked = pending.filter((r) => (r.programId ?? 'general') === group);
-              const joining = panel?.kind === 'join' && panel.group === group;
-              return (
-                <li key={group} className="rounded-box border border-base-300 bg-base-200 p-4">
-                  <div className="flex items-stretch gap-3">
-                    <ProgramStripe color={p.program?.accentColor} />
-                    <p className="flex-1 self-center font-display text-xl uppercase">{groupName(p)}</p>
-                    {!joining && (
-                      <button type="button" onClick={() => open({ kind: 'join', group })} className="btn btn-outline btn-sm self-center rounded-full">
-                        Agregar clase
-                      </button>
-                    )}
-                  </div>
-                  {flash?.group === group && <Flash text={flash.text} />}
-                  <PendingJoins requests={asked} />
-                  {joining && <CoursePicker programId={p.program?.id ?? null} group={group} onCancel={() => open(null)} onSent={sent} />}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
 
       <div role="note" className="alert alert-soft alert-info items-start text-sm">
         <span aria-hidden className="text-lg leading-none">

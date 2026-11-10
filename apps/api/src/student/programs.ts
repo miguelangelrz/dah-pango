@@ -137,7 +137,7 @@ const byFirstSlot = (loaded: LoadedCourses) => (a: CourseRow, b: CourseRow) => {
   return key(sa).localeCompare(key(sb)) || a.title.localeCompare(b.title, 'es');
 };
 
-/** Every programa (by name) and then general clases, each with the student's clases in it. */
+/** The programas (by name) the student has clases in, then general clases if they have any. */
 export async function studentPrograms(
   db: Db,
   loaded: LoadedCourses,
@@ -153,7 +153,7 @@ export async function studentPrograms(
   return [
     ...programs.map((program) => ({ program, courses: coursesIn(program.id) })),
     { program: null, courses: coursesIn(null) },
-  ];
+  ].filter((p) => p.courses.length > 0);
 }
 
 /**
