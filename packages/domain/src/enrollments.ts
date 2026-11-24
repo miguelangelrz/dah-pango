@@ -18,6 +18,14 @@ export const ENROLLMENT_ACTION_LABELS: Record<EnrollmentAction, string> = {
 export const REQUEST_STATUSES = ['pending', 'approved', 'denied', 'withdrawn'] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 
+/** A request's status as the student reads it. Withdrawn: by the student, or when they cancelled that clase. */
+export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
+  pending: 'Pendiente',
+  approved: 'Aprobada',
+  denied: 'Rechazada',
+  withdrawn: 'Retirada',
+};
+
 /** Clases the student already has that `candidate` would overlap in time. */
 export function clashesWith(existing: ScheduledCourse[], candidate: ScheduledCourse): string[] {
   const clashes: string[] = [];

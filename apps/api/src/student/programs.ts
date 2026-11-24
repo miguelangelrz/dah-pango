@@ -227,25 +227,34 @@ export async function requestsOf(
   studentId: string,
   termId: string,
 ): Promise<StudentEnrollmentRequest[]> {
-  const rows = await db
-    .select()
-    .from(schema.enrollmentRequest)
-    .where(and(eq(schema.enrollmentRequest.studentId, studentId), eq(schema.enrollmentRequest.termId, termId)))
-    .orderBy(desc(schema.enrollmentRequest.createdAt));
+  const [rows, programs] = await Promise.all([
+    db
+      .select()
+      .from(schema.enrollmentRequest)
+      .where(and(eq(schema.enrollmentRequest.studentId, studentId), eq(schema.enrollmentRequest.termId, termId)))
+      .orderBy(desc(schema.enrollmentRequest.createdAt)),
+    programsById(db),
+  ]);
   const ref = (id: string | null) => {
     const c = id ? loaded.courses.get(id) : undefined;
     return c ? { id: c.id, title: c.title } : null;
   };
-  return rows.map((r) => ({
-    id: r.id,
-    action: r.action as EnrollmentAction,
-    status: r.status as RequestStatus,
-    programId: requestProgramId(loaded, mine, r),
-    course: ref(r.courseId),
-    replacesCourse: ref(r.replacesCourseId),
-    note: r.note,
-    createdAt: r.createdAt.toISOString(),
-  }));
+  return rows.map((r) => {
+    const programId = requestProgramId(loaded, mine, r);
+    return {
+      id: r.id,
+      action: r.action as EnrollmentAction,
+      status: r.status as RequestStatus,
+      program: programId ? (programs.get(programId) ?? null) : null,
+      course: ref(r.courseId),
+      replacesCourse: ref(r.replacesCourseId),
+      note: r.note,
+      createdAt: r.createdAt.toISOString(),
+      approvedStart: r.approvedStart,
+      reviewedAt: r.reviewedAt?.toISOString() ?? null,
+      reply: r.reply,
+    };
+  });
 }
 
 /** What a student's new request is checked against. */

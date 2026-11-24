@@ -140,7 +140,7 @@ describe('requests', () => {
     const res = await post('/student/enrollment-requests/join', { courseId: dancehall, note: 'Quiero probar' });
     expect(res.statusCode).toBe(201);
     const request = res.json() as StudentEnrollmentRequest;
-    expect(request).toMatchObject({ action: 'join', status: 'pending', programId: rougeId, course: { title: 'Dancehall' } });
+    expect(request).toMatchObject({ action: 'join', status: 'pending', program: { id: rougeId, name: 'En Rouge' }, course: { title: 'Dancehall' } });
 
     const again = await post('/student/enrollment-requests/join', { courseId: dancehall });
     expect(again.statusCode).toBe(409);
@@ -165,6 +165,47 @@ describe('requests', () => {
 
     const otherProgram = await post('/student/enrollment-requests/swap', { replacesCourseId: house, courseId: dancehall });
     expect(otherProgram.statusCode).toBe(409);
+  });
+
+  it('lists the requests newest first, with the director\'s answer', async () => {
+    const first = (await post('/student/enrollment-requests/join', { courseId: dancehall })).json() as StudentEnrollmentRequest;
+    await db
+      .update(schema.enrollmentRequest)
+      .set({ status: 'denied', reply: 'Ese horario se llenó', reviewedAt: NOW, createdAt: new Date(NOW.getTime() - 86_400_000) })
+      .where(eq(schema.enrollmentRequest.id, first.id));
+    await post('/student/enrollment-requests/join', { courseId: breaking, note: 'Desde el lunes' });
+
+    const requests = await get<StudentEnrollmentRequest[]>('/student/enrollment-requests');
+    expect(requests.map((r) => [r.course?.title, r.status])).toEqual([
+      ['Breaking', 'pending'],
+      ['Dancehall', 'denied'],
+    ]);
+    expect(requests[0]).toMatchObject({ note: 'Desde el lunes', program: { name: 'At My House' }, reviewedAt: null });
+    expect(requests[1]).toMatchObject({ reply: 'Ese horario se llenó', reviewedAt: NOW.toISOString() });
+  });
+
+  it('withdraws a pending request, but not one a director answered', async () => {
+    const pending = (await post('/student/enrollment-requests/join', { courseId: dancehall })).json() as StudentEnrollmentRequest;
+    const res = await post(`/student/enrollment-requests/${pending.id}/withdraw`);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ id: pending.id, status: 'withdrawn' });
+    // Withdrawn, the clase can be asked for again.
+    expect((await post('/student/enrollment-requests/join', { courseId: dancehall })).statusCode).toBe(201);
+
+    const answered = (await post('/student/enrollment-requests/join', { courseId: breaking })).json() as StudentEnrollmentRequest;
+    await db.update(schema.enrollmentRequest).set({ status: 'approved' }).where(eq(schema.enrollmentRequest.id, answered.id));
+    expect((await post(`/student/enrollment-requests/${answered.id}/withdraw`)).statusCode).toBe(409);
+  });
+
+  it('does not let a student withdraw someone else\'s request', async () => {
+    const mine = (await post('/student/enrollment-requests/join', { courseId: dancehall })).json() as StudentEnrollmentRequest;
+    const other = await member('200', 'Camilo');
+    const res = await app.inject({
+      method: 'POST',
+      url: `/student/enrollment-requests/${mine.id}/withdraw`,
+      headers: { cookie: other.cookie },
+    });
+    expect(res.statusCode).toBe(404);
   });
 
 });

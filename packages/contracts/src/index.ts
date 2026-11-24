@@ -284,13 +284,20 @@ export interface StudentEnrollmentRequest {
   action: EnrollmentAction;
   status: RequestStatus;
   /** The programa the request belongs to; null for general clases. */
-  programId: string | null;
+  program: ProgramRef | null;
   /** The clase to add or change to. */
   course: { id: string; title: string } | null;
   /** The clase to change. */
   replacesCourse: { id: string; title: string } | null;
+  /** The student's message to the director. */
   note: string | null;
   createdAt: string;
+  /** The day the director set for the change to start, once approved. */
+  approvedStart: string | null;
+  /** When a director approved or denied it. */
+  reviewedAt: string | null;
+  /** The director's answer. */
+  reply: string | null;
 }
 
 const requestNote = z.string().trim().max(500, 'El mensaje es muy largo').optional();

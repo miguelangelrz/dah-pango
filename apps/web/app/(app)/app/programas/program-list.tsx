@@ -8,6 +8,7 @@ import type {
   StudentEnrollmentRequest,
   StudentProgram,
 } from '@dah-pango/contracts';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { FormError } from '@/components/form';
@@ -30,7 +31,7 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
   const [pending, setPending] = useState(initial);
   const [openCourse, setOpenCourse] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
-  const [flash, setFlash] = useState<{ group: string; text: string } | null>(null);
+  const [flash, setFlash] = useState<{ group: string; text: string; link?: boolean } | null>(null);
   // After cancelling a clase the page reloads its data from the server.
   useEffect(() => setPending(initial), [initial]);
 
@@ -44,7 +45,7 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
     setPending((list) => [request, ...list]);
     setPanel(null);
     setOpenCourse(null);
-    setFlash({ group, text: 'Listo. Tu solicitud quedó pendiente de aprobación del director.' });
+    setFlash({ group, text: 'Listo. Tu solicitud quedó pendiente de aprobación del director.', link: true });
   }
 
   function left(group: string, course: StudentCourse, result: CourseLeaveResult) {
@@ -62,7 +63,7 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
 
   return (
     <div className="space-y-8">
-      {flash?.group === 'page' && <Flash text={flash.text} />}
+      {flash?.group === 'page' && <Flash {...flash} />}
       {programs.length === 0 && (
         <p className="rounded-box border border-dashed border-base-300 p-6 text-center text-mute">
           No estás inscrito en ninguna clase este semestre.
@@ -78,7 +79,7 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
             setOpenCourse(id);
             open(null);
           }}
-          flash={flash?.group === groupKey(p) ? flash.text : null}
+          flash={flash?.group === groupKey(p) ? flash : null}
           {...shared}
         />
       ))}
@@ -96,10 +97,18 @@ export function ProgramList({ programs, pending: initial }: { programs: StudentP
   );
 }
 
-function Flash({ text }: { text: string }) {
+function Flash({ text, link }: { text: string; link?: boolean }) {
   return (
     <p role="status" className="mt-3 rounded-field bg-success/10 px-3 py-2 text-sm text-success">
       {text}
+      {link && (
+        <>
+          {' '}
+          <Link href="/app/solicitudes" className="link font-semibold">
+            Ver mis solicitudes
+          </Link>
+        </>
+      )}
     </p>
   );
 }
@@ -126,10 +135,10 @@ function ProgramSection({
   program: StudentProgram;
   openCourse: string | null;
   setOpenCourse: (id: string | null) => void;
-  flash: string | null;
+  flash: { text: string; link?: boolean } | null;
 }) {
   const group = groupKey(p);
-  const asked = pending.filter((r) => (r.programId ?? 'general') === group);
+  const asked = pending.filter((r) => (r.program?.id ?? 'general') === group);
   const here = panel?.group === group ? panel : null;
 
   return (
@@ -141,7 +150,7 @@ function ProgramSection({
           {p.courses.length} {p.courses.length === 1 ? 'clase' : 'clases'}
         </span>
       </h2>
-      {flash && <Flash text={flash} />}
+      {flash && <Flash {...flash} />}
 
       <ul className="space-y-2">
         {p.courses.map((c) => {
