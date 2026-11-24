@@ -93,6 +93,28 @@ export function registerProgramRoutes(app: FastifyInstance, db: Db, clock: () =>
     return requestsOf(db, ctx.loaded, ctx.mine, me.id, ctx.term.id);
   });
 
+  // Taking back a pending request; once a director answered it, it stays as it is.
+  app.post<{ Params: { id: string } }>('/student/enrollment-requests/:id/withdraw', async (req, reply) => {
+    const me = await requireStudent(db, req, reply);
+    if (!me) return;
+    const requestId = req.params.id;
+    if (!isUuid(requestId)) return reply.code(404).send({ error: 'No encontramos esa solicitud' });
+    const [row] = await db
+      .select({ termId: schema.enrollmentRequest.termId, status: schema.enrollmentRequest.status })
+      .from(schema.enrollmentRequest)
+      .where(and(eq(schema.enrollmentRequest.id, requestId), eq(schema.enrollmentRequest.studentId, me.id)));
+    if (!row) return reply.code(404).send({ error: 'No encontramos esa solicitud' });
+    const [updated] = await db
+      .update(schema.enrollmentRequest)
+      .set({ status: 'withdrawn' })
+      .where(and(eq(schema.enrollmentRequest.id, requestId), eq(schema.enrollmentRequest.status, 'pending')))
+      .returning({ id: schema.enrollmentRequest.id });
+    if (!updated) return reply.code(409).send({ error: 'El director ya respondió esta solicitud' });
+    const ctx = await contextOf(db, me.id, clock());
+    const requests = ctx ? await requestsOf(db, ctx.loaded, ctx.mine, me.id, row.termId) : [];
+    return requests.find((r) => r.id === requestId) ?? null;
+  });
+
   /** Saves a request after `check` passes; the checks and the insert share one transaction. */
   function requestRoute<T extends z.ZodType<{ note?: string }>>(
     action: EnrollmentAction,

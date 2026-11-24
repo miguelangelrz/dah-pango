@@ -55,7 +55,9 @@ Built: Mis clases for students (`apps/api/src/student`, web `/app/clases`): the 
 
 Built: Mis programas for students (`apps/api/src/student/program-routes.ts`, web `/app/programas`): the student's weekly clases grouped by programa (líneas stay internal), requests to add or change a clase (`POST /student/enrollment-requests/{join,swap}`, stored in `enrollment_request` with `replaces_course_id`; the director approves), clase options as cards with clashes shown disabled (`GET /student/course-options`), and cancelling a clase right away without approval from a date the student picks (`POST /student/courses/:id/leave`, `planLeave`: today at the earliest, tomorrow once today's sesión started; leaving one clase of a línea closes the línea and keeps its other clases as single-clase inscripciones). There is no cancelling a whole programa: students cancel clase by clase. An inscripción closed before it started ends the day before `valid_from`.
 
-Not built yet: the requests list for students, director review of requests (applying approved changes), makeup requests, a reposiciones view, cancel/reschedule screens, creating or editing clases themselves (title, teacher, líneas), special clases with outside sign-ups.
+Built: Mis solicitudes for students (web `/app/solicitudes`, API `GET /student/enrollment-requests`): the semestre's requests to add or change a clase, pending first, with the director's answer (`reply`, `approved_start`, `reviewed_at`), and withdrawing a pending one (`POST /student/enrollment-requests/:id/withdraw`).
+
+Not built yet: director review of requests (applying approved changes), makeup requests, a reposiciones view, cancel/reschedule screens, creating or editing clases themselves (title, teacher, líneas), special clases with outside sign-ups.
 
 ## Commands
 
